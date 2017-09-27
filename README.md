@@ -1,4 +1,6 @@
-# Gophersat, a SAT solver written in pure Go.
+# Gophersat, a SAT solver written in pure Go
+
+![gophersat logo](https://github.com/crillab/gophersat/gophersat.png)
 
 This is Gophersat, a SAT solver written purely in Go. 
 Gophersat was developed by the [CRIL (Centre de Recherche en Informatique
