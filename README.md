@@ -34,20 +34,23 @@ SAT](https://en.wikipedia.org/wiki/Boolean_satisfiability_problem).
 ## Is Gophersat fast? Why use it at all?
 Yes and no. It is much faster than naïve implementations, but slower than
 top-level, highly optimised, state-of-the-art solvers.
+
 Gophersat is not aiming at being the fastest SAT solver available. The
 goal is to give access to SAT technologies to gophers, without resorting
 to interfaces to solvers written in other languages (typically C/C++).
+
 However, in some cases, interfacing with a solver written in another
 language is the best choice for your application. If you have lots of
 small problems to solve, Gophersat will be the fastest alternative. For
-bigger problems, if you want to have as little dependencies as possible at
-the expense of solving time, Gophersat is good too. If you need to solve
-difficult problems and don't mind using cgo or use an external program,
-Gophersat is probably not the best option.
+bigger problems, if you want to have as little dependencies as possible
+at the expense of solving time, Gophersat is good too. If you need to
+solve difficult problems and don't mind using cgo or use an external
+program, Gophersat is probably not the best option.
 
 ## What does it feature?
 For the moment, almost nothing. It does not
 propose incremental SAT solving, MUS extraction, UNSAT certification,
 model counting, user-friendly input format and the like. It does not even
-feature a preprocessor. But all those features might come later. Feel free
-to ask for features. 
+feature a preprocessor.
+
+But all those features might come later. Feel free to ask for features. 
