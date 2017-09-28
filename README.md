@@ -1,6 +1,7 @@
 # Gophersat, a SAT solver written in pure Go
 
-![gophersat logo](https://github.com/crillab/gophersat/gophersat.png)
+![gophersat
+logo](https://raw.githubusercontent.com/crillab/gophersat/master/gophersat.png)
 
 This is Gophersat, a SAT solver written purely in Go. 
 Gophersat was developed by the [CRIL (Centre de Recherche en Informatique
@@ -9,6 +10,14 @@ released under the GNU LGPL license. Gophersat is rather efficient, i.e on
 typical benchmarks it runs about 1 to 5 times slower than top-level
 solvers (namely, [glucose](http://www.labri.fr/perso/lsimon/glucose/) or
 [minisat](http://minisat.se/)) from which it is strongly inspired.
+
+## How do I install it?
+
+`go get github.com/crillab/gophersat && go install
+github.com/crillab/gophersat`
+
+Gophersat can be used as a standalone solver (reading DIMACS CNF files
+from a file or standard input) or as a library in any go program.
 
 
 ## What is a SAT solver? What is the SAT problem?
