@@ -11,16 +11,20 @@ import (
 
 func main() {
 	debug.SetGCPercent(300)
-	if len(os.Args) != 2 {
-		fmt.Fprintf(os.Stderr, "Syntax : %s file.cnf\n", os.Args[0])
+	if len(os.Args) > 2 {
+		fmt.Fprintf(os.Stderr, "Syntax : %s [file.cnf]\n", os.Args[0])
 		os.Exit(1)
 	}
-	f, err := os.Open(os.Args[1])
-	if err != nil {
-		fmt.Fprintf(os.Stderr, err.Error())
-		os.Exit(1)
+	f := os.Stdin
+	if len(os.Args) == 2 {
+		var err error
+		f, err = os.Open(os.Args[1])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Could not open %s: %v\n", os.Args[1], err.Error())
+			os.Exit(1)
+		}
+		defer f.Close()
 	}
-	defer f.Close()
 	fmt.Printf("c ======================================================================================\n")
 	fmt.Printf("c | Parsing problem...                                                                 |\n")
 	pb, err := solver.ParseCNF(f)
