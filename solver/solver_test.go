@@ -40,6 +40,7 @@ var tests = []test{
 	{"testcnf/250.cnf", Unsat},
 	{"testcnf/275.cnf", Sat},
 	{"testcnf/300.cnf", Sat},
+	// Commented out because solving this problem takes a very long times and makes go test crash because of the timeout
 	/*{"testcnf/325.cnf", Sat},*/
 }
 
