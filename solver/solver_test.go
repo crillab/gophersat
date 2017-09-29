@@ -28,19 +28,19 @@ func runTest(test test, t *testing.T) {
 }
 
 var tests = []test{
-	{"/Users/delorme/prog/sat/25.cnf", Sat},
-	{"/Users/delorme/prog/sat/50.cnf", Sat},
-	{"/Users/delorme/prog/sat/75.cnf", Sat},
-	{"/Users/delorme/prog/sat/100.cnf", Sat},
-	{"/Users/delorme/prog/sat/125.cnf", Unsat},
-	{"/Users/delorme/prog/sat/150.cnf", Unsat},
-	{"/Users/delorme/prog/sat/175.cnf", Unsat},
-	{"/Users/delorme/prog/sat/200.cnf", Unsat},
-	{"/Users/delorme/prog/sat/225.cnf", Sat},
-	{"/Users/delorme/prog/sat/250.cnf", Unsat},
-	{"/Users/delorme/prog/sat/275.cnf", Sat},
-	{"/Users/delorme/prog/sat/300.cnf", Sat},
-	{"/Users/delorme/prog/sat/325.cnf", Sat},
+	{"testcnf/25.cnf", Sat},
+	{"testcnf/50.cnf", Sat},
+	{"testcnf/75.cnf", Sat},
+	{"testcnf/100.cnf", Sat},
+	{"testcnf/125.cnf", Unsat},
+	{"testcnf/150.cnf", Unsat},
+	{"testcnf/175.cnf", Unsat},
+	{"testcnf/200.cnf", Unsat},
+	{"testcnf/225.cnf", Sat},
+	{"testcnf/250.cnf", Unsat},
+	{"testcnf/275.cnf", Sat},
+	{"testcnf/300.cnf", Sat},
+	/*{"testcnf/325.cnf", Sat},*/
 }
 
 func TestSolver(t *testing.T) {
@@ -66,41 +66,41 @@ func runBench(path string, b *testing.B) {
 }
 
 func BenchmarkSolver125(b *testing.B) {
-	runBench("/Users/delorme/prog/sat/125.cnf", b)
+	runBench("testcnf/125.cnf", b)
 }
 
 func BenchmarkSolver150(b *testing.B) {
-	runBench("/Users/delorme/prog/sat/150.cnf", b)
+	runBench("testcnf/150.cnf", b)
 }
 
 func BenchmarkSolver175(b *testing.B) {
-	runBench("/Users/delorme/prog/sat/175.cnf", b)
+	runBench("testcnf/175.cnf", b)
 }
 
 func BenchmarkSolver200(b *testing.B) {
-	runBench("/Users/delorme/prog/sat/200.cnf", b)
+	runBench("testcnf/200.cnf", b)
 }
 
 func BenchmarkSolver225(b *testing.B) {
-	runBench("/Users/delorme/prog/sat/225.cnf", b)
+	runBench("testcnf/225.cnf", b)
 }
 
 func BenchmarkSolver250(b *testing.B) {
-	runBench("/Users/delorme/prog/sat/250.cnf", b)
+	runBench("testcnf/250.cnf", b)
 }
 
 func BenchmarkSolver275(b *testing.B) {
-	runBench("/Users/delorme/prog/sat/275.cnf", b)
+	runBench("testcnf/275.cnf", b)
 }
 
 func BenchmarkSolver300(b *testing.B) {
-	runBench("/Users/delorme/prog/sat/300.cnf", b)
+	runBench("testcnf/300.cnf", b)
 }
 
 func BenchmarkSolver325(b *testing.B) {
-	runBench("/Users/delorme/prog/sat/325.cnf", b)
+	runBench("testcnf/325.cnf", b)
 }
 
 func BenchmarkSolverHuge(b *testing.B) {
-	runBench("/Users/delorme/prog/sat/easy-huge.cnf", b)
+	runBench("testcnf/easy-huge.cnf", b)
 }
