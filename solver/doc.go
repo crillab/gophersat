@@ -28,7 +28,6 @@ the programmer can create the Problem by doing:
 
 2. create the equivalent list of list of literals. The problem above can be created programatically this way:
 
-    nbVars := 6
     clauses := [][]int{
         []int{1, 2, 3},
         []int{4, 5, 6},
@@ -38,7 +37,7 @@ the programmer can create the Problem by doing:
         []int{-1, -3},
         []int{-4, -6},
     }
-    pb := solver.NewProblem(nbVars, clauses)
+    pb, err := solver.ParseSlice(clauses)
 
 Solving a problem
 
