@@ -42,6 +42,10 @@ software correctness checking, etc.
 More about the SAT problem can be found on [wikipedia's article about
 SAT](https://en.wikipedia.org/wiki/Boolean_satisfiability_problem).
 
+You can also find information about how to represent your own boolean
+formulas so they can be used by gophersat in the [tutorial "SAT for
+noobs"](examples/sat-for-noobs.md).
+
 ## Is Gophersat fast? Why use it at all?
 Yes and no. It is much faster than naïve implementations, but slower than
 top-level, highly optimised, state-of-the-art solvers.
