@@ -52,6 +52,7 @@ func (m Model) String() string {
 
 // A Solver solves a given problem. It is the main data structure.
 type Solver struct {
+	Verbose  bool // Indicates whether the solver should display information during solving or not. False by default
 	nbVars   int
 	status   Status
 	wl       watcherList
@@ -267,31 +268,35 @@ func (s *Solver) search() Status {
 
 // Solve solves the problem associated with the solver and returns the appropriate status.
 func (s *Solver) Solve() Status {
-	go func() { // Function displaying stats during resolution
-		fmt.Printf("c ======================================================================================\n")
-		fmt.Printf("c | Restarts |  Conflicts  |  Learned  |  Deleted  | Del%% | Reduce |   Units learned   |\n")
-		fmt.Printf("c ======================================================================================\n")
-		for s.status == Indet { // There might be concurrent access in a few places but this is okay since we are very conservative and don't modify state.
-			time.Sleep(3 * time.Second)
-			if s.status == Indet {
-				iter := s.Stats.NbRestarts + 1
-				nbConfl := s.Stats.NbConflicts
-				nbReduce := s.wl.idxReduce - 1
-				nbLearned := s.wl.nbLearned
-				nbDel := s.Stats.NbDeleted
-				pctDel := int(100 * float64(nbDel) / float64(s.Stats.NbLearned))
-				nbUnit := s.Stats.NbUnitLearned
-				fmt.Printf("c | %8d | %11d | %9d | %9d | %3d%% | %6d | %8d/%8d |\n", iter, nbConfl, nbLearned, nbDel, pctDel, nbReduce, nbUnit, s.nbVars)
+	if s.Verbose {
+		go func() { // Function displaying stats during resolution
+			fmt.Printf("c ======================================================================================\n")
+			fmt.Printf("c | Restarts |  Conflicts  |  Learned  |  Deleted  | Del%% | Reduce |   Units learned   |\n")
+			fmt.Printf("c ======================================================================================\n")
+			for s.status == Indet { // There might be concurrent access in a few places but this is okay since we are very conservative and don't modify state.
+				time.Sleep(3 * time.Second)
+				if s.status == Indet {
+					iter := s.Stats.NbRestarts + 1
+					nbConfl := s.Stats.NbConflicts
+					nbReduce := s.wl.idxReduce - 1
+					nbLearned := s.wl.nbLearned
+					nbDel := s.Stats.NbDeleted
+					pctDel := int(100 * float64(nbDel) / float64(s.Stats.NbLearned))
+					nbUnit := s.Stats.NbUnitLearned
+					fmt.Printf("c | %8d | %11d | %9d | %9d | %3d%% | %6d | %8d/%8d |\n", iter, nbConfl, nbLearned, nbDel, pctDel, nbReduce, nbUnit, s.nbVars)
+				}
 			}
-		}
-	}()
+		}()
+	}
 	for s.status == Indet {
 		s.search()
 		if s.status == Indet {
 			s.Stats.NbRestarts++
 		}
 	}
-	fmt.Printf("c ======================================================================================\n")
+	if s.Verbose {
+		fmt.Printf("c ======================================================================================\n")
+	}
 	return s.status
 }
 
