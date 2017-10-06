@@ -11,21 +11,19 @@
 //
 // For example, the following boolean formula:
 //
-// !(a & b) -> ((c | !d) & !(c & (e <-> !c)) & !(a xor b))
+//     ¬(a ∧ b) → ((c ∨ ¬d) ∧ ¬(c ∧ (e ↔ ¬c)) ∧ ¬(a ⊻ b))
 //
 // Will be defined with the following code:
 //
-// f := Not(Implies(And(Var("a"), Var("b")), And(Or(Var("c"), Not(Var("d"))), Not(And(Var("c"), Eq(Var("e"), Not(Var("c"))))), Not(Xor(Var("a"), Var("b"))))))
+//     f := Not(Implies(And(Var("a"), Var("b")), And(Or(Var("c"), Not(Var("d"))), Not(And(Var("c"), Eq(Var("e"), Not(Var("c"))))), Not(Xor(Var("a"), Var("b"))))))
 //
 // When calling `Solve(f)`, the following equivalent CNF will be generated:
 //
-// a & b & (!c | !x1) & (d | !x1) & (c | !x2) & (!e | !c | !x2) & (e | c | !x2) & (!a | !b | !x3) & (a | b | !x3) & (x1 | x2 | x3)
+//     a ∧ b ∧ (¬c ∨ ¬x1) ∧ (d ∨ ¬x1) ∧ (c ∨ ¬x2) ∧ (¬e ∨ ¬c ∨ ¬x2) ∧ (e ∨ c ∨ ¬x2) ∧ (¬a ∨ ¬b ∨ ¬x3) ∧ (a ∨ b ∨ ¬x3) ∧ (x1 ∨ x2 ∨ x3)
 //
 // Note that this formula is longer than the original one and that some variables were added to it.
 // The translation is both polynomial in time and space.
 // When fed this CNF as an input, gophersat then returns the following map:
 //
-// `map[a:true b:true c:false d:true e:false]`
-//
-// &{map[a:1 b:2 c:4 d:5 e:7] [[1] [2] [-4 -3] [5 -3] [4 -6] [-7 -4 -6] [7 4 -6] [-1 -2 -8] [1 2 -8] [3 6 8]]}
+//     map[a:true b:true c:false d:true e:false]
 package bf
