@@ -270,7 +270,7 @@ func asCnf(f Formula) *cnf {
 func cnfRec(f Formula, vars *vars) [][]int {
 	switch f := f.(type) {
 	case lit:
-		return [][]int{[]int{vars.litValue(f)}}
+		return [][]int{{vars.litValue(f)}}
 	case and:
 		var res [][]int
 		for _, sub := range f {
