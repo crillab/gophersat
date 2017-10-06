@@ -1,10 +1,9 @@
 # Gophersat, a SAT solver written in pure Go
 
-[![GoReport](https://goreportcard.com/badge/github.com/crillab/gophersat)](https://goreportcard.com/badge/github.com/crillab/gophersat)
+[![GoReport](https://goreportcard.com/badge/github.com/crillab/gophersat)](https://goreportcard.com/report/github.com/crillab/gophersat)
 [![GoDoc](https://godoc.org/github.com/crillab/gophersat?status.svg)](https://godoc.org/github.com/crillab/gophersat)
 
-![gophersat
-logo](https://raw.githubusercontent.com/crillab/gophersat/master/gophersat.png)
+![gophersat logo](https://raw.githubusercontent.com/crillab/gophersat/master/gophersat.png)
 
 This is Gophersat, a SAT solver written purely in Go. 
 Gophersat was developed by the [CRIL (Centre de Recherche en Informatique
