@@ -81,33 +81,21 @@ func (s *Solver) watchClause(c *Clause) {
 	}
 }
 
+// unwatch the given clause.
+// NOTE: since it is only called when c.lbd() <= 2, we know for sure
+// that c is not a binary clause.
 func (s *Solver) unwatchClause(c *Clause) {
-	if c.Len() == 2 {
-		for i := 0; i < 2; i++ {
-			neg := c.Get(i).Negation()
-			j := 0
-			length := len(s.wl.wlistBin[neg])
-			// We're looking for the index of the clause.
-			// This will panic if c is not in wlist[neg], but this shouldn't happen.
-			for s.wl.wlistBin[neg][j].clause != c {
-				j++
-			}
-			s.wl.wlistBin[neg][j] = s.wl.wlistBin[neg][length-1]
-			s.wl.wlistBin[neg] = s.wl.wlistBin[neg][:length-1]
+	for i := 0; i < 2; i++ {
+		neg := c.Get(i).Negation()
+		j := 0
+		length := len(s.wl.wlist[neg])
+		// We're looking for the index of the clause.
+		// This will panic if c is not in wlist[neg], but this shouldn't happen.
+		for s.wl.wlist[neg][j] != c {
+			j++
 		}
-	} else {
-		for i := 0; i < 2; i++ {
-			neg := c.Get(i).Negation()
-			j := 0
-			length := len(s.wl.wlist[neg])
-			// We're looking for the index of the clause.
-			// This will panic if c is not in wlist[neg], but this shouldn't happen.
-			for s.wl.wlist[neg][j] != c {
-				j++
-			}
-			s.wl.wlist[neg][j] = s.wl.wlist[neg][length-1]
-			s.wl.wlist[neg] = s.wl.wlist[neg][:length-1]
-		}
+		s.wl.wlist[neg][j] = s.wl.wlist[neg][length-1]
+		s.wl.wlist[neg] = s.wl.wlist[neg][:length-1]
 	}
 }
 
