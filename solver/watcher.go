@@ -188,58 +188,52 @@ func (s *Solver) unifyLiteral(lit Lit, lvl decLevel) *Clause {
 	return nil
 }
 
-// Used by simplifyClause. Indexes of the 1st & 2nd free lits, if any.
-var freeIdx [2]int
-
 // simplifyClause simplifies the given clause according to current binding.
 // It returns a new status, and a potential unit literal.
-// TODO: improve quality of code.
 func (s *Solver) simplifyClause(clause *Clause) (Status, Lit) {
-	nbFound := 0
+	var freeIdx int // Index of the first free lit found, if any
+	found := false
 	len := clause.Len()
 	for i := 0; i < len; i++ {
 		lit := clause.Get(i)
 		if assign := s.model[lit.Var()]; assign == 0 {
-			freeIdx[nbFound] = i
-			nbFound++
-			if nbFound == 2 {
-				break
+			if found {
+				// 2 lits are known to be unbounded
+				switch freeIdx {
+				case 0: // c[0] is not removed, c[1] is
+					n1 := &s.wl.wlist[clause.Second().Negation()]
+					nf1 := &s.wl.wlist[clause.Get(i).Negation()]
+					clause.swapSecondWith(i)
+					*n1 = removeFrom(*n1, clause)
+					*nf1 = append(*nf1, clause)
+				case 1: // c[0] is removed, not c[1]
+					n0 := &s.wl.wlist[clause.First().Negation()]
+					nf1 := &s.wl.wlist[clause.Get(i).Negation()]
+					clause.swapFirstWith(i)
+					*n0 = removeFrom(*n0, clause)
+					*nf1 = append(*nf1, clause)
+				default: // Both c[0] & c[1] are removed
+					n0 := &s.wl.wlist[clause.First().Negation()]
+					n1 := &s.wl.wlist[clause.Second().Negation()]
+					nf0 := &s.wl.wlist[clause.Get(freeIdx).Negation()]
+					nf1 := &s.wl.wlist[clause.Get(i).Negation()]
+					clause.swapFirstWith(freeIdx)
+					clause.swapSecondWith(i)
+					*n0 = removeFrom(*n0, clause)
+					*n1 = removeFrom(*n1, clause)
+					*nf0 = append(*nf0, clause)
+					*nf1 = append(*nf1, clause)
+				}
+				return Many, -1
 			}
+			freeIdx = i
+			found = true
 		} else if (assign > 0) == lit.IsPositive() {
 			return Sat, -1
 		}
 	}
-	switch nbFound {
-	case 0:
+	if !found {
 		return Unsat, -1
-	case 1:
-		return Unit, clause.Get(freeIdx[0])
 	}
-	// 2 lits are known to be unbounded
-	switch freeIdx[0] {
-	case 0: // c[0] is not removed, c[1] is
-		n1 := &s.wl.wlist[clause.Second().Negation()]
-		nf1 := &s.wl.wlist[clause.Get(freeIdx[1]).Negation()]
-		clause.swapSecondWith(freeIdx[1])
-		*n1 = removeFrom(*n1, clause)
-		*nf1 = append(*nf1, clause)
-	case 1: // c[0] is removed, not c[1]
-		n0 := &s.wl.wlist[clause.First().Negation()]
-		nf1 := &s.wl.wlist[clause.Get(freeIdx[1]).Negation()]
-		clause.swapFirstWith(freeIdx[1])
-		*n0 = removeFrom(*n0, clause)
-		*nf1 = append(*nf1, clause)
-	default: // Both c[0] & c[1] are removed
-		n0 := &s.wl.wlist[clause.First().Negation()]
-		n1 := &s.wl.wlist[clause.Second().Negation()]
-		nf0 := &s.wl.wlist[clause.Get(freeIdx[0]).Negation()]
-		nf1 := &s.wl.wlist[clause.Get(freeIdx[1]).Negation()]
-		clause.swapFirstWith(freeIdx[0])
-		clause.swapSecondWith(freeIdx[1])
-		*n0 = removeFrom(*n0, clause)
-		*n1 = removeFrom(*n1, clause)
-		*nf0 = append(*nf0, clause)
-		*nf1 = append(*nf1, clause)
-	}
-	return Many, -1
+	return Unit, clause.Get(freeIdx)
 }
