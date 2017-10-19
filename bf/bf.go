@@ -3,6 +3,7 @@ package bf
 import (
 	"fmt"
 	"io"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -25,6 +26,10 @@ func Solve(f Formula) (sat bool, model map[string]bool, err error) {
 
 // Dimacs writes the DIMACS CNF version of the formula on w.
 // It is useful so as to feed it to any SAT solver.
+// The original names of variables is associated with their DIMACS integer counterparts
+// in comments, betwen the prolog and the set of clauses.
+// For instance, if the variable "a" is associated with the index 1, there will be a comment line
+// "c a=1".
 func Dimacs(f Formula, w io.Writer) error {
 	cnf := asCnf(f)
 	nbVars := len(cnf.vars.all)
@@ -32,6 +37,18 @@ func Dimacs(f Formula, w io.Writer) error {
 	prefix := fmt.Sprintf("p cnf %d %d\n", nbVars, nbClauses)
 	if _, err := io.WriteString(w, prefix); err != nil {
 		return fmt.Errorf("could not write DIMACS output: %v", err)
+	}
+	var pbVars []string
+	for v := range cnf.vars.pb {
+		pbVars = append(pbVars, string(v))
+	}
+	sort.Sort(sort.StringSlice(pbVars))
+	for _, v := range pbVars {
+		idx := cnf.vars.pb[variable(v)]
+		line := fmt.Sprintf("c %s=%d\n", v, idx)
+		if _, err := io.WriteString(w, line); err != nil {
+			return fmt.Errorf("could not write DIMACS output: %v", err)
+		}
 	}
 	for _, clause := range cnf.clauses {
 		strClause := make([]string, len(clause))
@@ -128,9 +145,7 @@ func (a and) nnf() Formula {
 	for _, s := range a {
 		nnf := s.nnf()
 		if a2, ok := nnf.(and); ok { // // Simplify: "and"s in the "and" get to the higher level
-			for _, s2 := range a2 {
-				res = append(res, s2)
-			}
+			res = append(res, a2...)
 		} else {
 			res = append(res, nnf)
 		}
@@ -161,9 +176,7 @@ func (o or) nnf() Formula {
 	for _, s := range o {
 		nnf := s.nnf()
 		if o2, ok := nnf.(or); ok { // Simplify: "or"s in the "or" get to the higher level
-			for _, s2 := range o2 {
-				res = append(res, s2)
-			}
+			res = append(res, o2...)
 		} else {
 			res = append(res, nnf)
 		}

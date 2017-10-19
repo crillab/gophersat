@@ -47,6 +47,8 @@ func ExampleDimacs() {
 	}
 	// Output:
 	// p cnf 4 6
+	// c a=2
+	// c b=3
 	// -2 -1 0
 	// 3 -1 0
 	// 1 2 3 0

@@ -26,4 +26,23 @@
 // When fed this CNF as an input, gophersat then returns the following map:
 //
 //     map[a:true b:true c:false d:true e:false]
+//
+// It is also possible to create boolean formulas using a dedicated syntax. The BNF grammar is as follows:
+//
+//    expression ::= implies { '=' implies }*
+//    implies    ::= or { '->' or}*
+//    or         ::= and { '|' and}*
+//    and        ::= not { '&' not}*
+//    not        ::= '^'not | atom
+//    atom       ::= ident | '(' expression ')'
+//
+// So the formula
+//
+//     ¬(a ∧ b) → ((c ∨ ¬d) ∧ ¬(c ∧ (e ↔ ¬c)) ∧ ¬(a ⊻ b))
+//
+// would be written as
+//
+//    ^(a & b) -> ((c | ^d) & ^(c & (e = ^c)) & ^(a = ^b))
+//
+// a call to the `Parse` function will then create the associated Formula.
 package bf
