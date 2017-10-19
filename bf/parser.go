@@ -28,7 +28,14 @@ func Parse(r io.Reader) (Formula, error) {
 	s.Init(r)
 	p := parser{s: s}
 	p.scan()
-	return p.parseEquiv()
+	f, err := p.parseEquiv()
+	if err != nil {
+		return f, err
+	}
+	if !p.eof {
+		return nil, fmt.Errorf("expected EOF, found %q at %v", p.token, p.s.Pos())
+	}
+	return f, nil
 }
 
 func isOperator(token string) bool {
