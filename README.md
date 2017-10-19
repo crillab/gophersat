@@ -21,6 +21,8 @@ github.com/crillab/gophersat`
 Gophersat can be used as a standalone solver (reading DIMACS CNF files
 from a file or standard input) or as a library in any go program.
 
+Gophersat is now also able to read and solve general boolean formulas,
+not only problems represented in the user-unfriendly DIMACS format.
 
 ## What is a SAT solver? What is the SAT problem?
 SAT, which stands for *Boolean Satisfiability Problem*, is the canonical
