@@ -27,7 +27,7 @@ func Solve(f Formula) (sat bool, model map[string]bool, err error) {
 // Dimacs writes the DIMACS CNF version of the formula on w.
 // It is useful so as to feed it to any SAT solver.
 // The original names of variables is associated with their DIMACS integer counterparts
-// in comments, betwen the prolog and the set of clauses.
+// in comments, between the prolog and the set of clauses.
 // For instance, if the variable "a" is associated with the index 1, there will be a comment line
 // "c a=1".
 func Dimacs(f Formula, w io.Writer) error {
