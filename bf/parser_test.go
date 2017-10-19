@@ -43,7 +43,7 @@ func ExampleParse() {
 	} else {
 		sat, model, err := Solve(f)
 		if err != nil {
-			fmt.Printf("Could not solve %q: %v", err)
+			fmt.Printf("Could not solve %q: %v", expr, err)
 		} else if !sat {
 			fmt.Printf("Problem is unsatisfiable")
 		} else {
