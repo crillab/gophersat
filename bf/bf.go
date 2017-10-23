@@ -210,6 +210,22 @@ func Xor(f1, f2 Formula) Formula {
 	return and{or{not{f1}, not{f2}}, or{f1, f2}}
 }
 
+// Unique indicates exactly one of the given variables must be true.
+func Unique(vars ...variable) Formula {
+	res := make([]Formula, 1, 1+(len(vars)*len(vars)-1)/2)
+	varsAsForms := make([]Formula, len(vars))
+	for i, v := range vars {
+		varsAsForms[i] = v
+	}
+	res[0] = Or(varsAsForms...)
+	for i := 0; i < len(vars)-1; i++ {
+		for j := i + 1; j < len(vars); j++ {
+			res = append(res, Or(Not(vars[i]), Not(vars[j])))
+		}
+	}
+	return And(res...)
+}
+
 // vars associate variable names with numeric indices.
 type vars struct {
 	all map[variable]int // all vars, including those created when converting the formula

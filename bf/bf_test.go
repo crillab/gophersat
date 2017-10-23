@@ -17,6 +17,25 @@ func TestCNF(t *testing.T) {
 	}
 }
 
+func TestUnique(t *testing.T) {
+	f := And(Var("a"), Unique("a", "b", "c", "d", "e"))
+	sat, model, err := Solve(f)
+	if err != nil {
+		t.Error(err)
+	} else if !sat {
+		t.Errorf("problem is declared unsat")
+	} else if !model["a"] || model["b"] || model["c"] || model["d"] || model["e"] {
+		t.Errorf("invalid model %v", model)
+	}
+	f = And(Var("a"), Or(Var("b"), Var("c")), Unique("a", "b", "c", "d", "e"))
+	sat, model, err = Solve(f)
+	if err != nil {
+		t.Error(err)
+	} else if sat {
+		t.Errorf("problem is declared sat, model: %v", model)
+	}
+}
+
 func TestString(t *testing.T) {
 	f := And(Or(Var("a"), Not(Var("b"))), Not(Var("c")))
 	const expected = "and(or(a, not(b)), not(c))"
@@ -38,6 +57,19 @@ func ExampleSolve() {
 		fmt.Printf("Problem is unsatisfiable")
 	}
 	// Output: Problem is satisfiable
+}
+
+func ExampleUnique() {
+	f := And(Var("a"), Unique("a", "b", "c", "d"))
+	sat, model, err := Solve(f)
+	if err != nil {
+		fmt.Printf("Error while solving problem: %v", err)
+	} else if sat {
+		fmt.Printf("Problem is satisfiable: a=%t, b=%t, c=%t, d=%t", model["a"], model["b"], model["c"], model["d"])
+	} else {
+		fmt.Printf("Problem is unsatisfiable")
+	}
+	// Output: Problem is satisfiable: a=true, b=false, c=false, d=false
 }
 
 func ExampleDimacs() {
