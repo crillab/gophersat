@@ -60,7 +60,7 @@ func ExampleSolve() {
 }
 
 func ExampleUnique() {
-	f := And(Var("a"), Unique("a", "b", "c", "d"))
+	f := And(Var("a"), Unique("a", "b", "c", "d", "e"))
 	sat, model, err := Solve(f)
 	if err != nil {
 		fmt.Printf("Error while solving problem: %v", err)
@@ -210,4 +210,25 @@ func ExampleSolve_sudoku() {
 	// 961537284
 	// 287419635
 	// 345286179
+}
+
+func benchmarkUnique(n int) {
+	vars := make([]string, n)
+	for i := range vars {
+		vars[i] = fmt.Sprintf("var-%d", i)
+	}
+	f := Unique(vars...)
+	_, _, _ = Solve(f)
+}
+
+func BenchmarkUnique100(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		benchmarkUnique(100)
+	}
+}
+
+func BenchmarkUnique1000(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		benchmarkUnique(1000)
+	}
 }

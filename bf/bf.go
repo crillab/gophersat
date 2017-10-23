@@ -10,7 +10,7 @@ import (
 	"github.com/crillab/gophersat/solver"
 )
 
-// A Formula is any kind of boolean formula, not necessarily in CNF form.
+// A Formula is any kind of boolean formula, not necessarily in CNF.
 type Formula interface {
 	nnf() Formula
 	String() string
@@ -40,11 +40,11 @@ func Dimacs(f Formula, w io.Writer) error {
 	}
 	var pbVars []string
 	for v := range cnf.vars.pb {
-		pbVars = append(pbVars, string(v))
+		pbVars = append(pbVars, v.name)
 	}
 	sort.Sort(sort.StringSlice(pbVars))
 	for _, v := range pbVars {
-		idx := cnf.vars.pb[variable(v)]
+		idx := cnf.vars.pb[pbVar(v)]
 		line := fmt.Sprintf("c %s=%d\n", v, idx)
 		if _, err := io.WriteString(w, line); err != nil {
 			return fmt.Errorf("could not write DIMACS output: %v", err)
@@ -65,17 +65,28 @@ func Dimacs(f Formula, w io.Writer) error {
 
 // Var generates a named boolean variable in a formula.
 func Var(name string) Formula {
-	return variable(name)
+	return pbVar(name)
 }
 
-type variable string
+func pbVar(name string) variable {
+	return variable{name: name, dummy: false}
+}
+
+func dummyVar(name string) variable {
+	return variable{name: name, dummy: true}
+}
+
+type variable struct {
+	name  string
+	dummy bool
+}
 
 func (v variable) nnf() Formula {
 	return lit{signed: false, v: v}
 }
 
 func (v variable) String() string {
-	return string(v)
+	return v.name
 }
 
 type lit struct {
@@ -89,9 +100,9 @@ func (l lit) nnf() Formula {
 
 func (l lit) String() string {
 	if l.signed {
-		return "not(" + string(l.v) + ")"
+		return "not(" + l.v.name + ")"
 	}
-	return string(l.v)
+	return l.v.name
 }
 
 // Not represents a negation. It negates the given subformula.
@@ -211,20 +222,61 @@ func Xor(f1, f2 Formula) Formula {
 }
 
 // Unique indicates exactly one of the given variables must be true.
-func Unique(vars ...variable) Formula {
+func Unique(vars ...string) Formula {
 	res := make([]Formula, 1, 1+(len(vars)*len(vars)-1)/2)
 	varsAsForms := make([]Formula, len(vars))
 	for i, v := range vars {
-		varsAsForms[i] = v
+		varsAsForms[i] = pbVar(v)
 	}
 	res[0] = Or(varsAsForms...)
 	for i := 0; i < len(vars)-1; i++ {
 		for j := i + 1; j < len(vars); j++ {
-			res = append(res, Or(Not(vars[i]), Not(vars[j])))
+			res = append(res, or{not{varsAsForms[i]}, not{varsAsForms[j]}})
 		}
 	}
 	return And(res...)
 }
+
+func uniqueSmall(vars ...string) Formula {
+	res := make([]Formula, 1, 1+(len(vars)*len(vars)-1)/2)
+	varsAsForms := make([]Formula, len(vars))
+	for i, v := range vars {
+		varsAsForms[i] = pbVar(v)
+	}
+	res[0] = Or(varsAsForms...)
+	for i := 0; i < len(vars)-1; i++ {
+		for j := i + 1; j < len(vars); j++ {
+			res = append(res, Or(Not(varsAsForms[i]), Not(varsAsForms[j])))
+		}
+	}
+	return And(res...)
+}
+
+/*func Unique2(vars ...string) Formula {
+	nbVars := len(vars)
+	if nbVars <= 4 {
+		return uniqueSmall(vars...)
+	}
+	sqrt := math.Sqrt(float64(nbVars))
+	nbLines := int(math.Floor(sqrt))
+	lines := make([]variable, nbLines)
+	for i := range lines {
+		lines[i] = dummyVar("")
+	}
+	nbCols := int(math.Ceil(sqrt))
+	cols := make([]variable, nbCols)
+	for i := range cols {
+		cols[i] = dummyVar("")
+	}
+	res := make([]Formula, 0, 2*nbVars+1)
+	for i, v := range vars {
+		res = append(res, Or(Not(v), Not(lines[i%nbCols])))
+		res = append(res, Or(Not(v), Not(cols[i/nbCols])))
+	}
+	res = append(res, Unique2(lines...))
+	res = append(res, Unique2(cols...))
+	return And(res...)
+}*/
 
 // vars associate variable names with numeric indices.
 type vars struct {
@@ -250,7 +302,7 @@ func (vars *vars) litValue(l lit) int {
 // Dummy creates a dummy variable and returns its associated index.
 func (vars *vars) dummy() int {
 	val := len(vars.all) + 1
-	vars.all[variable(fmt.Sprintf("dummy-%d", val))] = val
+	vars.all[dummyVar(fmt.Sprintf("dummy-%d", val))] = val
 	return val
 }
 
@@ -279,8 +331,8 @@ func (cnf *cnf) solve() (sat bool, vars map[string]bool, err error) {
 		return false, nil, fmt.Errorf("could not retrieve model: %v", err)
 	}
 	vars = make(map[string]bool)
-	for name, idx := range cnf.vars.pb {
-		vars[string(name)] = m[idx-1]
+	for v, idx := range cnf.vars.pb {
+		vars[v.name] = m[idx-1]
 	}
 	return true, vars, nil
 }
