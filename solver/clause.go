@@ -31,12 +31,10 @@ func (c *Clause) Learned() bool {
 }
 
 func (c *Clause) lock() {
-	// c.locked = true
 	c.lbdValue = c.lbdValue | lockedMask
 }
 
 func (c *Clause) unlock() {
-	// c.locked = false
 	c.lbdValue = c.lbdValue & ^lockedMask
 }
 
@@ -53,7 +51,6 @@ func (c *Clause) incLbd() {
 }
 
 func (c *Clause) isLocked() bool {
-	// return c.learned && c.locked
 	return c.lbdValue&bothMasks == bothMasks
 }
 
