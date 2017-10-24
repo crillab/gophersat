@@ -3,6 +3,7 @@ package bf
 import (
 	"fmt"
 	"io"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -40,7 +41,9 @@ func Dimacs(f Formula, w io.Writer) error {
 	}
 	var pbVars []string
 	for v := range cnf.vars.pb {
-		pbVars = append(pbVars, v.name)
+		if !v.dummy {
+			pbVars = append(pbVars, v.name)
+		}
 	}
 	sort.Sort(sort.StringSlice(pbVars))
 	for _, v := range pbVars {
@@ -90,8 +93,8 @@ func (v variable) String() string {
 }
 
 type lit struct {
-	signed bool
 	v      variable
+	signed bool
 }
 
 func (l lit) nnf() Formula {
@@ -222,26 +225,22 @@ func Xor(f1, f2 Formula) Formula {
 }
 
 // Unique indicates exactly one of the given variables must be true.
+// It might create dummy variables to reduce the number of generated clauses.
 func Unique(vars ...string) Formula {
-	res := make([]Formula, 1, 1+(len(vars)*len(vars)-1)/2)
-	varsAsForms := make([]Formula, len(vars))
+	vars2 := make([]variable, len(vars))
 	for i, v := range vars {
-		varsAsForms[i] = pbVar(v)
+		vars2[i] = pbVar(v)
 	}
-	res[0] = Or(varsAsForms...)
-	for i := 0; i < len(vars)-1; i++ {
-		for j := i + 1; j < len(vars); j++ {
-			res = append(res, or{not{varsAsForms[i]}, not{varsAsForms[j]}})
-		}
-	}
-	return And(res...)
+	return uniqueRec(vars2...)
 }
 
-func uniqueSmall(vars ...string) Formula {
+// uniqueSmall generates clauses indicating exactly one of the given variables is true.
+// It is suitable when the number of variables is small (typically, <= 4).
+func uniqueSmall(vars ...variable) Formula {
 	res := make([]Formula, 1, 1+(len(vars)*len(vars)-1)/2)
 	varsAsForms := make([]Formula, len(vars))
 	for i, v := range vars {
-		varsAsForms[i] = pbVar(v)
+		varsAsForms[i] = v
 	}
 	res[0] = Or(varsAsForms...)
 	for i := 0; i < len(vars)-1; i++ {
@@ -252,31 +251,36 @@ func uniqueSmall(vars ...string) Formula {
 	return And(res...)
 }
 
-/*func Unique2(vars ...string) Formula {
+func uniqueRec(vars ...variable) Formula {
 	nbVars := len(vars)
 	if nbVars <= 4 {
 		return uniqueSmall(vars...)
 	}
 	sqrt := math.Sqrt(float64(nbVars))
-	nbLines := int(math.Floor(sqrt))
+	nbLines := int(sqrt + 0.5)
 	lines := make([]variable, nbLines)
+	allNames := make([]string, len(vars))
+	for i := range vars {
+		allNames[i] = vars[i].name
+	}
+	fullName := strings.Join(allNames, "-")
 	for i := range lines {
-		lines[i] = dummyVar("")
+		lines[i] = dummyVar(fmt.Sprintf("line-%d-%s", i, fullName))
 	}
 	nbCols := int(math.Ceil(sqrt))
 	cols := make([]variable, nbCols)
 	for i := range cols {
-		cols[i] = dummyVar("")
+		cols[i] = dummyVar(fmt.Sprintf("col-%d-%s", i, fullName))
 	}
 	res := make([]Formula, 0, 2*nbVars+1)
 	for i, v := range vars {
-		res = append(res, Or(Not(v), Not(lines[i%nbCols])))
-		res = append(res, Or(Not(v), Not(cols[i/nbCols])))
+		res = append(res, Or(Not(v), lines[i/nbCols]))
+		res = append(res, Or(Not(v), cols[i%nbCols]))
 	}
-	res = append(res, Unique2(lines...))
-	res = append(res, Unique2(cols...))
+	res = append(res, uniqueRec(lines...))
+	res = append(res, uniqueRec(cols...))
 	return And(res...)
-}*/
+}
 
 // vars associate variable names with numeric indices.
 type vars struct {
