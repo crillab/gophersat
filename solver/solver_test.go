@@ -40,6 +40,7 @@ var tests = []test{
 	{"testcnf/250.cnf", Unsat},
 	{"testcnf/275.cnf", Sat},
 	{"testcnf/300.cnf", Sat},
+	{"testcnf/hoons-vbmc-lucky7.cnf", Unsat},
 	// Commented out because solving this problem takes a very long times and makes go test crash because of the timeout
 	/*{"testcnf/325.cnf", Sat},*/
 }
@@ -63,6 +64,18 @@ func runBench(path string, b *testing.B) {
 		}
 		s := New(pb)
 		s.Solve()
+	}
+}
+
+func TestParseSlice(t *testing.T) {
+	cnf := [][]int{{1, 2, 3}, {-1}, {-2}, {-3}}
+	pb, err := ParseSlice(cnf)
+	if err != nil {
+		t.Fatalf("could not parse cnf %v: %v", cnf, err)
+	}
+	s := New(pb)
+	if status := s.Solve(); status != Unsat {
+		t.Fatalf("expected unsat for problem %v, got %v", cnf, status)
 	}
 }
 
@@ -98,10 +111,6 @@ func BenchmarkSolver300(b *testing.B) {
 	runBench("testcnf/300.cnf", b)
 }
 
-func BenchmarkSolver325(b *testing.B) {
-	runBench("testcnf/325.cnf", b)
-}
-
-func BenchmarkSolverHuge(b *testing.B) {
-	runBench("testcnf/easy-huge.cnf", b)
+func BenchmarkSolverIndus(b *testing.B) {
+	runBench("testcnf/hoons-vbmc-lucky7.cnf", b)
 }

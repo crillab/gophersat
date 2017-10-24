@@ -95,18 +95,11 @@ func ExampleSolve_sudoku() {
 	// In each spot, exactly one number is written
 	for line := 1; line <= 9; line++ {
 		for col := 1; col <= 9; col++ {
-			vars := make([]Formula, 9)
+			vars := make([]string, 9)
 			for val := 1; val <= 9; val++ {
-				vars[val-1] = Var(fmt.Sprintf(varFmt, line, col, val))
+				vars[val-1] = fmt.Sprintf(varFmt, line, col, val)
 			}
-			f = And(f, Or(vars...))
-			for val1 := 1; val1 <= 8; val1++ {
-				var1 := Var(fmt.Sprintf(varFmt, line, col, val1))
-				for val2 := val1 + 1; val2 <= 9; val2++ {
-					var2 := Var(fmt.Sprintf(varFmt, line, col, val2))
-					f = And(f, Or(Not(var1), Not(var2)))
-				}
-			}
+			f = And(f, Unique(vars...))
 		}
 	}
 	// In each line, each number appears at least once.

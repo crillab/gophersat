@@ -22,8 +22,9 @@ func ParseSlice(cnf [][]int) (*Problem, error) {
 				return nil, fmt.Errorf("null unit clause")
 			}
 			lit := IntToLit(int32(line[0]))
-			if v := int(lit.Var()); v >= pb.NbVars {
-				pb.NbVars = v + 1
+			v := lit.Var()
+			if int(v) >= pb.NbVars {
+				pb.NbVars = int(v) + 1
 			}
 			pb.Units = append(pb.Units, lit)
 		default:
@@ -41,6 +42,13 @@ func ParseSlice(cnf [][]int) (*Problem, error) {
 		}
 	}
 	pb.Model = make([]decLevel, pb.NbVars)
+	for _, unit := range pb.Units {
+		if unit.IsPositive() {
+			pb.Model[unit.Var()] = 1
+		} else {
+			pb.Model[unit.Var()] = -1
+		}
+	}
 	pb.simplify()
 	return &pb, nil
 }
@@ -67,7 +75,13 @@ func (pb *Problem) parseClause(line string) error {
 		pb.Status = Unsat
 		pb.Clauses = nil
 	case 1:
-		pb.Units = append(pb.Units, lits[0])
+		lit := lits[0]
+		pb.Units = append(pb.Units, lit)
+		if lit.IsPositive() {
+			pb.Model[lit.Var()] = 1
+		} else {
+			pb.Model[lit.Var()] = -1
+		}
 	default:
 		pb.Clauses = append(pb.Clauses, NewClause(lits))
 	}
