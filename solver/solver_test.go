@@ -79,6 +79,18 @@ func TestParseSlice(t *testing.T) {
 	}
 }
 
+func TestParseSliceTrivial(t *testing.T) {
+	cnf := [][]int{{1}, {-1}}
+	pb, err := ParseSlice(cnf)
+	if err != nil {
+		t.Fatalf("could not parse cnf %v: %v", cnf, err)
+	}
+	s := New(pb)
+	if status := s.Solve(); status != Unsat {
+		t.Fatalf("expected unsat for problem %v, got %v", cnf, status)
+	}
+}
+
 func BenchmarkSolver125(b *testing.B) {
 	runBench("testcnf/125.cnf", b)
 }

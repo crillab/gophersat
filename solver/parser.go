@@ -43,10 +43,16 @@ func ParseSlice(cnf [][]int) (*Problem, error) {
 	}
 	pb.Model = make([]decLevel, pb.NbVars)
 	for _, unit := range pb.Units {
-		if unit.IsPositive() {
-			pb.Model[unit.Var()] = 1
-		} else {
-			pb.Model[unit.Var()] = -1
+		v := unit.Var()
+		if pb.Model[v] == 0 {
+			if unit.IsPositive() {
+				pb.Model[v] = 1
+			} else {
+				pb.Model[v] = -1
+			}
+		} else if pb.Model[v] > 0 != unit.IsPositive() {
+			pb.Status = Unsat
+			return &pb, nil
 		}
 	}
 	pb.simplify()
@@ -77,10 +83,15 @@ func (pb *Problem) parseClause(line string) error {
 	case 1:
 		lit := lits[0]
 		pb.Units = append(pb.Units, lit)
-		if lit.IsPositive() {
-			pb.Model[lit.Var()] = 1
-		} else {
-			pb.Model[lit.Var()] = -1
+		v := lit.Var()
+		if pb.Model[v] == 0 {
+			if lit.IsPositive() {
+				pb.Model[lit.Var()] = 1
+			} else {
+				pb.Model[lit.Var()] = -1
+			}
+		} else if pb.Model[v] > 0 != lit.IsPositive() {
+			pb.Status = Unsat
 		}
 	default:
 		pb.Clauses = append(pb.Clauses, NewClause(lits))
