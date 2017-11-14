@@ -2,6 +2,7 @@ package bf
 
 import (
 	"fmt"
+	"go/token"
 	"io"
 	"text/scanner"
 )
@@ -16,19 +17,31 @@ type parser struct {
 // It returns the corresponding Formula.
 // Formulas are written using the following operators (from lowest to highest priority) :
 //
+// - for a conjunction of clauses ("and"), the ";" operator
+//
 // - for an equivalence, the "=" operator,
+//
 // - for an implication, the "->" operator,
+//
 // - for a disjunction ("or"), the "|" operator,
+//
 // - for a conjunction ("and"), the "&" operator,
+//
 // - for a negation, the "^" unary operator.
 //
+// - for an exactly-one constraint, names of variables between curly braces, eg "{a, b, c}" to specify
+// exactly one of the variable a, b or c must be true.
+//
 // Parentheses can be used to group subformulas.
+// Note there are two ways to write conjunctions, one with a low priority, one with a high priority.
+// The low-priority one is useful when the user wants to describe a whole formula as a set of smaller formulas
+// that must all be true.
 func Parse(r io.Reader) (Formula, error) {
 	var s scanner.Scanner
 	s.Init(r)
 	p := parser{s: s}
 	p.scan()
-	f, err := p.parseEquiv()
+	f, err := p.parseClause()
 	if err != nil {
 		return f, err
 	}
@@ -39,15 +52,37 @@ func Parse(r io.Reader) (Formula, error) {
 }
 
 func isOperator(token string) bool {
-	return token == "=" || token == "->" || token == "|" || token == "&"
+	return token == "=" || token == "->" || token == "|" || token == "&" || token == ";"
 }
 
 func (p *parser) scan() {
-	if p.eof {
-		return
-	}
-	p.eof = (p.s.Scan() == scanner.EOF)
+	p.eof = p.eof || (p.s.Scan() == scanner.EOF)
 	p.token = p.s.TokenText()
+}
+
+func (p *parser) parseClause() (f Formula, err error) {
+	if isOperator(p.token) {
+		return nil, fmt.Errorf("unexpected token %q at %s", p.token, p.s.Pos())
+	}
+	f, err = p.parseEquiv()
+	if err != nil {
+		return nil, err
+	}
+	if p.eof {
+		return f, nil
+	}
+	if p.token == ";" {
+		p.scan()
+		if p.eof {
+			return f, nil
+		}
+		f2, err := p.parseClause()
+		if err != nil {
+			return nil, err
+		}
+		return And(f, f2), nil
+	}
+	return f, nil
 }
 
 func (p *parser) parseEquiv() (f Formula, err error) {
@@ -76,7 +111,6 @@ func (p *parser) parseEquiv() (f Formula, err error) {
 		return Eq(f, f2), nil
 	}
 	return f, nil
-	//return nil, fmt.Errorf("unexpected token %q at %s", p.token, p.s.Pos())
 }
 
 func (p *parser) parseImplies() (f Formula, err error) {
@@ -192,6 +226,28 @@ func (p *parser) parseBasic() (f Formula, err error) {
 		}
 		p.scan()
 		return f, nil
+	}
+	if p.token == "{" {
+		var vars []string
+		for p.token != "}" {
+			p.scan()
+			if p.eof {
+				return nil, fmt.Errorf("expected identifier, found EOF at %s", p.s.Pos())
+			}
+			if token.Lookup(p.token) != token.IDENT {
+				return nil, fmt.Errorf("expected variable name, found %q at %s", p.token, p.s.Pos())
+			}
+			vars = append(vars, p.token)
+			p.scan()
+			if p.eof {
+				return nil, fmt.Errorf("expected comma or closing brace, found EOF at %s", p.s.Pos())
+			}
+			if p.token != "}" && p.token != "," {
+				return nil, fmt.Errorf("expected comma or closing brace, found %q at %v", p.token, p.s.Pos())
+			}
+		}
+		p.scan()
+		return Unique(vars...), nil
 	}
 	defer p.scan()
 	return Var(p.token), nil
