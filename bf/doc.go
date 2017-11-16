@@ -29,7 +29,7 @@
 //
 // It is also possible to create boolean formulas using a dedicated syntax. The BNF grammar is as follows:
 //
-//    formula ::= formula { ';' clause }*
+//    formula ::= clause { ';' clause }*
 //    clause  ::= implies { '=' implies }*
 //    implies ::= or { '->' or}*
 //    or      ::= and { '|' and}*
