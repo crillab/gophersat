@@ -91,7 +91,7 @@ func ExampleDimacs() {
 
 func ExampleSolve_sudoku() {
 	const varFmt = "line-%d-col-%d:%d" // Scheme for variable naming
-	f := And()
+	f := True
 	// In each spot, exactly one number is written
 	for line := 1; line <= 9; line++ {
 		for col := 1; col <= 9; col++ {

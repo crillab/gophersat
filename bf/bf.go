@@ -66,6 +66,24 @@ func Dimacs(f Formula, w io.Writer) error {
 	return nil
 }
 
+// The "true" constant.
+type trueConst struct{}
+
+// True is the constant denoting a tautology.
+var True Formula = trueConst{}
+
+func (t trueConst) nnf() Formula   { return t }
+func (t trueConst) String() string { return "⊤" }
+
+// The "false" constant.
+type falseConst struct{}
+
+// False is the constant denoting a contradiction.
+var False Formula = falseConst{}
+
+func (f falseConst) nnf() Formula   { return f }
+func (f falseConst) String() string { return "⊥" }
+
 // Var generates a named boolean variable in a formula.
 func Var(name string) Formula {
 	return pbVar(name)
@@ -138,6 +156,10 @@ func (n not) nnf() Formula {
 			subs[i] = not{sub}.nnf()
 		}
 		return and(subs).nnf()
+	case trueConst:
+		return False
+	case falseConst:
+		return True
 	default:
 		panic("invalid formula type")
 	}
@@ -158,14 +180,21 @@ func (a and) nnf() Formula {
 	var res and
 	for _, s := range a {
 		nnf := s.nnf()
-		if a2, ok := nnf.(and); ok { // // Simplify: "and"s in the "and" get to the higher level
-			res = append(res, a2...)
-		} else {
+		switch nnf := nnf.(type) {
+		case and: // Simplify: "and"s in the "and" get to the higher level
+			res = append(res, nnf...)
+		case trueConst: // True is ignored
+		case falseConst:
+			return False
+		default:
 			res = append(res, nnf)
 		}
 	}
 	if len(res) == 1 {
 		return res[0]
+	}
+	if len(res) == 0 {
+		return False
 	}
 	return res
 }
@@ -189,14 +218,21 @@ func (o or) nnf() Formula {
 	var res or
 	for _, s := range o {
 		nnf := s.nnf()
-		if o2, ok := nnf.(or); ok { // Simplify: "or"s in the "or" get to the higher level
-			res = append(res, o2...)
-		} else {
+		switch nnf := nnf.(type) {
+		case or: // Simplify: "or"s in the "or" get to the higher level
+			res = append(res, nnf...)
+		case falseConst: // False is ignored
+		case trueConst:
+			return True
+		default:
 			res = append(res, nnf)
 		}
 	}
 	if len(res) == 1 {
 		return res[0]
+	}
+	if len(res) == 0 {
+		return True
 	}
 	return res
 }
@@ -383,6 +419,10 @@ func cnfRec(f Formula, vars *vars) [][]int {
 		}
 		res = append(res, lits)
 		return res
+	case trueConst: // True clauses are ignored
+		return [][]int{}
+	case falseConst: // TODO: improve this. This should simply be declared to make the problem UNSAT.
+		return [][]int{{}}
 	default:
 		panic("invalid NNF formula")
 	}
