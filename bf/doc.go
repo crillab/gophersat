@@ -29,12 +29,13 @@
 //
 // It is also possible to create boolean formulas using a dedicated syntax. The BNF grammar is as follows:
 //
-//    expression ::= implies { '=' implies }*
-//    implies    ::= or { '->' or}*
-//    or         ::= and { '|' and}*
-//    and        ::= not { '&' not}*
-//    not        ::= '^'not | atom
-//    atom       ::= ident | '(' expression ')'
+//    formula ::= formula { ';' clause }*
+//    clause  ::= implies { '=' implies }*
+//    implies ::= or { '->' or}*
+//    or      ::= and { '|' and}*
+//    and     ::= not { '&' not}*
+//    not     ::= '^'not | atom
+//    atom    ::= ident | '(' formula ')'
 //
 // So the formula
 //
