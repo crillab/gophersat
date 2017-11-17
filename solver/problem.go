@@ -27,6 +27,7 @@ func (pb *Problem) simplify() {
 	for i < nbClauses {
 		c := pb.Clauses[i]
 		nbLits := c.Len()
+		card := c.Cardinality()
 		clauseSat := false
 		j := 0
 		for j < nbLits {
@@ -44,29 +45,31 @@ func (pb *Problem) simplify() {
 		if clauseSat {
 			nbClauses--
 			pb.Clauses[i] = pb.Clauses[nbClauses]
-		} else if nbLits == 0 {
+		} else if nbLits < card {
 			pb.Status = Unsat
 			return
-		} else if nbLits == 1 { // UP
-			lit := c.First()
-			if lit.IsPositive() {
-				if pb.Model[lit.Var()] == -1 {
-					pb.Status = Unsat
-					return
+		} else if nbLits == card { // UP
+			for k := 0; k < nbLits; k++ {
+				lit := c.Get(k)
+				if lit.IsPositive() {
+					if pb.Model[lit.Var()] == -1 {
+						pb.Status = Unsat
+						return
+					}
+					pb.Model[lit.Var()] = 1
+				} else {
+					if pb.Model[lit.Var()] == 1 {
+						pb.Status = Unsat
+						return
+					}
+					pb.Model[lit.Var()] = -1
 				}
-				pb.Model[lit.Var()] = 1
-			} else {
-				if pb.Model[lit.Var()] == 1 {
-					pb.Status = Unsat
-					return
-				}
-				pb.Model[lit.Var()] = -1
+				pb.Units = append(pb.Units, lit)
 			}
-			pb.Units = append(pb.Units, lit)
 			nbClauses--
 			pb.Clauses[i] = pb.Clauses[nbClauses]
 			i = 0 // Must restart, since this lit might have made one more clause Unit or SAT.
-		} else { // 2 or more lits unbound
+		} else { // nb lits unbound > cardinality
 			if c.Len() != nbLits {
 				c.Shrink(nbLits)
 			}

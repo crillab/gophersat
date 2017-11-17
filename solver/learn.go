@@ -13,6 +13,29 @@ func (c *Clause) computeLbd(model Model) {
 	}
 }
 
+// addClauseLits is a helper function for learnClause.
+// It deals with lits from the conflict clause.
+func (s *Solver) addClauseLits(confl *Clause, lvl decLevel, met, metLvl []bool, lits *[]Lit) int {
+	nbLvl := 0
+	for i := 0; i < confl.Len(); i++ {
+		l := confl.Get(i)
+		v := l.Var()
+		met[v] = true
+		s.varBumpActivity(v)
+		if s.model[v] == 0 || ((s.model[v] > 0) == l.IsPositive()) {
+			// In clauses where cardinality > 1, some lits might be true in the conflict clause: ignore them
+			continue
+		}
+		if abs(s.model[v]) == lvl {
+			metLvl[v] = true
+			nbLvl++
+		} else if abs(s.model[v]) != 1 {
+			*lits = append(*lits, l)
+		}
+	}
+	return nbLvl
+}
+
 var bufLits = make([]Lit, 10000) // Buffer for lits in learnClause. Used to reduce allocations.
 
 // learnClause creates a conflict clause and returns either:
@@ -24,19 +47,8 @@ func (s *Solver) learnClause(confl *Clause, lvl decLevel) (learned *Clause, unit
 	buf := make([]bool, s.nbVars*2) // Buffer for met and metLvl; reduces allocs/deallocs
 	met := buf[:s.nbVars]           // List of all vars already met
 	metLvl := buf[s.nbVars:]        // List of all vars from current level to deal with
-	nbLvl := 0                      // Nb of vars in lvl currently used
-	for i := 0; i < confl.Len(); i++ {
-		l := confl.Get(i)
-		v := l.Var()
-		met[v] = true
-		s.varBumpActivity(v)
-		if abs(s.model[v]) == lvl {
-			metLvl[v] = true
-			nbLvl++
-		} else if abs(s.model[v]) != 1 {
-			lits = append(lits, l)
-		}
-	}
+	// nbLvl is the nb of vars in lvl currently used
+	nbLvl := s.addClauseLits(confl, lvl, met, metLvl, &lits)
 	ptr := len(s.trail) - 1 // Pointer in propagation trail
 	for nbLvl > 1 {         // We will stop once we only have one lit from current level.
 		for !metLvl[s.trail[ptr].Var()] {
@@ -52,6 +64,9 @@ func (s *Solver) learnClause(confl *Clause, lvl decLevel) (learned *Clause, unit
 				if v2 := lit.Var(); !met[v2] {
 					met[v2] = true
 					s.varBumpActivity(v2)
+					if s.model[v2] == 0 || ((s.model[v2] > 0) == lit.IsPositive()) {
+						continue
+					}
 					if abs(s.model[v2]) == lvl {
 						metLvl[v2] = true
 						nbLvl++
@@ -76,7 +91,6 @@ func (s *Solver) learnClause(confl *Clause, lvl decLevel) (learned *Clause, unit
 		return nil, lits[0]
 	}
 	learned = NewLearnedClause(alloc.newLits(lits[0:sz]...))
-	// log.Printf("learned %v", learned.CNF())
 	learned.computeLbd(s.model)
 	return learned, -1
 }

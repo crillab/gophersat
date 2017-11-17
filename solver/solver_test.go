@@ -1,6 +1,7 @@
 package solver
 
 import (
+	"fmt"
 	"os"
 	"testing"
 )
@@ -23,7 +24,7 @@ func runTest(test test, t *testing.T) {
 	}
 	s := New(pb)
 	if status := s.Solve(); status != test.expected {
-		t.Fatalf("Invalid result for %q: expected %v, got %v", test.path, test.expected, status)
+		t.Errorf("Invalid result for %q: expected %v, got %v", test.path, test.expected, status)
 	}
 }
 
@@ -69,26 +70,109 @@ func runBench(path string, b *testing.B) {
 
 func TestParseSlice(t *testing.T) {
 	cnf := [][]int{{1, 2, 3}, {-1}, {-2}, {-3}}
-	pb, err := ParseSlice(cnf)
-	if err != nil {
-		t.Fatalf("could not parse cnf %v: %v", cnf, err)
-	}
+	pb := ParseSlice(cnf)
 	s := New(pb)
 	if status := s.Solve(); status != Unsat {
 		t.Fatalf("expected unsat for problem %v, got %v", cnf, status)
 	}
 }
 
+func TestParseSliceSat(t *testing.T) {
+	cnf := [][]int{{1}, {-2, 3}, {-2, 4}, {-5, 3}, {-5, 6}, {-7, 3}, {-7, 8}, {-9, 10}, {-9, 4}, {-1, 10}, {-1, 6}, {3, 10}, {-3, -10}, {4, 6, 8}}
+	pb := ParseSlice(cnf)
+	s := New(pb)
+	if status := s.Solve(); status != Sat {
+		t.Fatalf("expected sat for problem %v, got %v", cnf, status)
+	}
+}
+
 func TestParseSliceTrivial(t *testing.T) {
 	cnf := [][]int{{1}, {-1}}
-	pb, err := ParseSlice(cnf)
-	if err != nil {
-		t.Fatalf("could not parse cnf %v: %v", cnf, err)
-	}
+	pb := ParseSlice(cnf)
 	s := New(pb)
 	if status := s.Solve(); status != Unsat {
 		t.Fatalf("expected unsat for problem %v, got %v", cnf, status)
 	}
+}
+
+func TestParseCardConstrs(t *testing.T) {
+	clauses := []CardConstr{
+		{Lits: []int{1, 2, 3}, AtLeast: 3},
+		{Lits: []int{-1, -2}, AtLeast: 0},
+		{Lits: []int{2, 3, -4}, AtLeast: 2},
+		AtLeast1(-1, -4),
+	}
+	pb := ParseCardConstrs(clauses)
+	s := New(pb)
+	if status := s.Solve(); status != Sat {
+		t.Fatalf("expected sat for cardinality problem %v, got %v", clauses, status)
+	}
+	model, err := s.Model()
+	if err != nil {
+		t.Fatalf("could not get model: %v", err)
+	}
+	if !model[IntToVar(1)] || !model[IntToVar(2)] || !model[IntToVar(3)] || model[IntToVar(4)] {
+		t.Fatalf("expected model 1, 2, 3, -4, got: %v", model)
+	}
+}
+
+func TestAtMost1(t *testing.T) {
+	c := AtMost1(1, -2, 3)
+	if c.Lits[0] != -1 || c.Lits[1] != 2 || c.Lits[2] != -3 {
+		t.Errorf("invalid constraint: expected [[-1 2 -3] 2], got %v", c)
+	}
+	if c.AtLeast != 2 {
+		t.Errorf("invalid cardinality: expected 2, got %d", c.AtLeast)
+	}
+}
+
+func TestParseCardConstrsTrivial(t *testing.T) {
+	pb := ParseCardConstrs([]CardConstr{{Lits: []int{1, 2}, AtLeast: 3}})
+	s := New(pb)
+	if status := s.Solve(); status != Unsat {
+		t.Errorf("expected unsat, got %v", status)
+	}
+	pb = ParseCardConstrs([]CardConstr{{Lits: []int{1, 2, 3}, AtLeast: 3}})
+	s = New(pb)
+	if status := s.Solve(); status != Sat {
+		t.Errorf("expected sat, got %v", status)
+	} else if model, err := s.Model(); err != nil {
+		t.Errorf("could not get model: %v", err)
+	} else if !model[IntToVar(1)] || !model[IntToVar(2)] || !model[IntToVar(3)] {
+		t.Errorf("invalid model, expected all true bindings, got %v", model)
+	}
+	pb = ParseCardConstrs([]CardConstr{{Lits: []int{1, -2, 3}, AtLeast: 2}, AtLeast1(2)})
+	s = New(pb)
+	if status := s.Solve(); status != Sat {
+		t.Errorf("expected sat, got %v", status)
+	} else if model, err := s.Model(); err != nil {
+		t.Errorf("could not get model: %v", err)
+	} else if !model[IntToVar(1)] || !model[IntToVar(2)] || !model[IntToVar(3)] {
+		t.Errorf("invalid model, expected all true bindings, got %v", model)
+	}
+}
+
+func ExampleParseCardConstrs() {
+	clauses := []CardConstr{
+		{Lits: []int{1, 2, 3}, AtLeast: 3},
+		{Lits: []int{2, 3, -4}, AtLeast: 2},
+		AtLeast1(-1, -4),
+		AtLeast1(-2, -3, 4),
+	}
+	pb := ParseCardConstrs(clauses)
+	s := New(pb)
+	if status := s.Solve(); status == Unsat {
+		fmt.Println("Problem is not satisfiable")
+	} else {
+		model, err := s.Model()
+		if err != nil {
+			fmt.Printf("Could not get model: %v", err)
+		} else {
+			fmt.Printf("Model found: %v\n", model)
+		}
+	}
+	// Output:
+	// Problem is not satisfiable
 }
 
 func BenchmarkSolver125(b *testing.B) {

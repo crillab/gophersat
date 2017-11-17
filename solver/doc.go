@@ -1,15 +1,19 @@
 /*
 Package solver gives access to a simple SAT solver.
 Its input can be either a DIMACS CNF file or a solver.Problem object,
-containing the set of clauses to be solved.
+containing the set of clauses to be solved. In the last case,
+the problem can be either a set of propositional clauses,
+or a set of clause with a cardinality constraints, i.e a constraint stating
+that at least n literals must be true for the clause to be satisfied.
 
-The solver.Solver will then solve the problem and indicate whether the problem is
+No matter the input format,
+the solver.Solver will then solve the problem and indicate whether the problem is
 satisfiable or not. In the former case, it will be able to provide a model, i.e a set of bindings
 for all variables that makes the problem true.
 
 Describing a problem
 
-A problem can be described in two ways:
+A problem can be described in three ways:
 
 1. parse a DIMACS stream (io.Reader). If the io.Reader produces the following content:
 
@@ -37,7 +41,27 @@ the programmer can create the Problem by doing:
         []int{-1, -3},
         []int{-4, -6},
     }
-    pb, err := solver.ParseSlice(clauses)
+    pb := solver.ParseSlice(clauses)
+
+3. create a list of cardinality constraints (CardConstr), if the problem to be solved is better represented this way.
+For instance, the problem stating that at least two literals must be true among the literals 1, 2, 3 and 4 could be described as a set of clauses:
+
+    clauses := [][]int{
+        []int{1, 2, 3},
+        []int{2, 3, 4},
+        []int{1, 2, 4},
+        []int{1, 3, 4},
+    }
+    pb := solver.ParseSlice(clauses)
+
+The number of clauses necessary to describe such a constrain can grow exponentially. Alternatively, it is possible to describe the same this way:
+
+    constrs := []CardConstr{
+        {Lits: []int{1, 2, 3, 4}, AtLeast: 2},
+    }
+    pb := solver.ParseCardConstrs(clauses)
+
+Note that a propositional clause has an implicit cardinality constraint of 1, since at least one of its literals must be true.
 
 Solving a problem
 
@@ -57,7 +81,7 @@ Alternatively, one can display on stdout the result and model (if any):
 
     s.OutputModel()
 
-For the above problem, the output can be:
+For the above problem described in the DIMACS format, the output can be:
 
     SATISFIABLE
     -1 2 -3 4 -5 -6
