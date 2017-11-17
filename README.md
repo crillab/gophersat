@@ -1,4 +1,4 @@
-# Gophersat, a SAT solver written in pure Go
+# Gophersat, a SAT solver written in Go
 
 [![GoReport](https://goreportcard.com/badge/github.com/crillab/gophersat)](https://goreportcard.com/report/github.com/crillab/gophersat)
 [![GoDoc](https://godoc.org/github.com/crillab/gophersat?status.svg)](https://godoc.org/github.com/crillab/gophersat)
@@ -8,7 +8,7 @@
 This is Gophersat, a SAT solver written purely in Go. 
 Gophersat was developed by the [CRIL (Centre de Recherche en Informatique
 de Lens)](http://www.cril.fr) at the Artois University & CNRS. It is
-released under the GNU LGPL license. Gophersat is rather efficient, i.e on
+released under the MIT license. Gophersat is rather efficient, i.e on
 typical benchmarks it runs about 1 to 5 times slower than top-level
 solvers (namely, [glucose](http://www.labri.fr/perso/lsimon/glucose/) or
 [minisat](http://minisat.se/)) from which it is strongly inspired.
@@ -21,7 +21,7 @@ github.com/crillab/gophersat`
 Gophersat can be used as a standalone solver (reading DIMACS CNF files
 from a file or standard input) or as a library in any go program.
 
-Gophersat is now also able to read and solve general boolean formulas,
+Gophersat is now also able to read and solve more general boolean formulas,
 not only problems represented in the user-unfriendly DIMACS format.
 It also deals natively with cardinality constraints, i.e clauses that must have at least
 n literals true, with n > 1.
