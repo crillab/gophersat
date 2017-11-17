@@ -358,10 +358,7 @@ type cnf struct {
 // The function returns a boolean indicating if the formula was satisfiable.
 // If it was, a model is then provided, associating each variable name with its binding.
 func (cnf *cnf) solve() (sat bool, vars map[string]bool, err error) {
-	pb, err := solver.ParseSlice(cnf.clauses)
-	if err != nil {
-		return false, nil, fmt.Errorf("could not create problem from formula: %v", err)
-	}
+	pb := solver.ParseSlice(cnf.clauses)
 	s := solver.New(pb)
 	if s.Solve() != solver.Sat {
 		return false, nil, nil

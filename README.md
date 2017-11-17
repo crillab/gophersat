@@ -23,6 +23,8 @@ from a file or standard input) or as a library in any go program.
 
 Gophersat is now also able to read and solve general boolean formulas,
 not only problems represented in the user-unfriendly DIMACS format.
+It also deals natively with cardinality constraints, i.e clauses that must have at least
+n literals true, with n > 1.
 
 ## What is a SAT solver? What is the SAT problem?
 SAT, which stands for *Boolean Satisfiability Problem*, is the canonical
@@ -66,6 +68,10 @@ at the expense of solving time, Gophersat is good too. If you need to
 solve difficult problems and don't mind using cgo or use an external
 program, Gophersat is probably not the best option.
 
+Gophersat is also providing cool features not always available with other solvers
+(a user-friendly input format, for instance), so it can be used as a tool for
+describing and solving NP-hard problems that can easily be reduced to a SAT instance.
+
 ## Do I have to represent my problem as CNF? Am I forced to use the unfriendly DIMACS format?
 Not anymore. The `bf` (for "boolean formula") package provides facilities to
 translate any boolean formula to CNF.
@@ -73,7 +79,6 @@ translate any boolean formula to CNF.
 ## What else does it feature?
 For the moment, not very much. It does not
 propose incremental SAT solving, MUS extraction, UNSAT certification,
-model counting  and the like. It does not even
-feature a preprocessor.
+model counting  and the like. It does not even feature a preprocessor.
 
 But all those features might come later. Feel free to ask for features. 
