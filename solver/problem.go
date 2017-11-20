@@ -93,7 +93,6 @@ func (pb *Problem) simplifyPB() {
 		i := 0
 		for i < len(pb.Clauses) {
 			c := pb.Clauses[i]
-			//log.Printf("treating clause %s", c.PBString())
 			j := 0
 			card := c.Cardinality()
 			wSum := c.WeightSum()
@@ -115,14 +114,12 @@ func (pb *Problem) simplifyPB() {
 						j++
 					}
 				} else {
-					//log.Printf("found unit: lit is %d, binding is %d", lit.Int(), pb.Model[v])
 					wSum -= w
 					if (pb.Model[v] == 1) == lit.IsPositive() {
 						card -= w
 					}
 					c.removeLit(j)
 					modified = true
-					//log.Printf("clause is now %s", c.PBString())
 				}
 			}
 			if card <= 0 { // Clause is Sat

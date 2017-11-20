@@ -1,10 +1,9 @@
 /*
-Package solver gives access to a simple SAT solver.
-Its input can be either a DIMACS CNF file or a solver.Problem object,
+Package solver gives access to a simple SAT and pseudo-boolean solver.
+Its input can be either a DIMACS CNF file, a PBS file or a solver.Problem object,
 containing the set of clauses to be solved. In the last case,
 the problem can be either a set of propositional clauses,
-or a set of clause with a cardinality constraints, i.e a constraint stating
-that at least n literals must be true for the clause to be satisfied.
+or a set of pseudo-boolean constraints.
 
 No matter the input format,
 the solver.Solver will then solve the problem and indicate whether the problem is
@@ -13,7 +12,7 @@ for all variables that makes the problem true.
 
 Describing a problem
 
-A problem can be described in three ways:
+A problem can be described in several ways:
 
 1. parse a DIMACS stream (io.Reader). If the io.Reader produces the following content:
 
@@ -62,6 +61,19 @@ The number of clauses necessary to describe such a constrain can grow exponentia
     pb := solver.ParseCardConstrs(clauses)
 
 Note that a propositional clause has an implicit cardinality constraint of 1, since at least one of its literals must be true.
+
+4. parse a PBS stream (io.Reader). If the io.Reader contains the following problem:
+
+    2 ~x1 +1 x2 +1 x3 >= 3 ;
+
+the programmer can create the Problem by doing:
+
+    pb, err := solver.ParsePBS(f)
+
+5. create a list of PBConstr. For instance, the following set of one PBConstrs will generate the same problem as above:
+
+    constrs := []PBConstr{GtEq([]int{1, 2, 3}, []int{2, 1, 1}, 3)}
+    pb := solver.ParsePBConstrs(constrs)
 
 Solving a problem
 

@@ -120,6 +120,13 @@ func ParseCardConstrs(constrs []CardConstr) *Problem {
 func ParsePBConstrs(constrs []PBConstr) *Problem {
 	var pb Problem
 	for _, constr := range constrs {
+		for i := range constr.Lits {
+			lit := IntToLit(int32(constr.Lits[i]))
+			v := lit.Var()
+			if int(v) >= pb.NbVars {
+				pb.NbVars = int(v) + 1
+			}
+		}
 		card := constr.AtLeast
 		if card <= 0 { // Clause is trivially SAT, ignore
 			continue
@@ -131,26 +138,13 @@ func ParsePBConstrs(constrs []PBConstr) *Problem {
 		}
 		if sumW == card { // All lits must be true
 			for i := range constr.Lits {
-				if constr.Lits[i] == 0 {
-					panic("literal 0 found in clause")
-				}
 				lit := IntToLit(int32(constr.Lits[i]))
-				v := lit.Var()
-				if int(v) >= pb.NbVars {
-					pb.NbVars = int(v) + 1
-				}
 				pb.Units = append(pb.Units, lit)
 			}
 		} else {
 			lits := make([]Lit, len(constr.Lits))
 			for j, val := range constr.Lits {
-				if val == 0 {
-					panic("literal 0 found in clause")
-				}
 				lits[j] = IntToLit(int32(val))
-				if v := int(lits[j].Var()); v >= pb.NbVars {
-					pb.NbVars = v + 1
-				}
 			}
 			pb.Clauses = append(pb.Clauses, NewPBClause(lits, constr.Weights, card))
 		}

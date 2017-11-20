@@ -35,41 +35,6 @@ func main() {
 	}
 }
 
-// tryReader is a reader that read lines from a reader and can be rewinded.
-type tryReader struct {
-	nextLines io.Reader
-	rewinded  bool
-	content   []byte
-}
-
-func newTryReader(r io.Reader) *tryReader {
-	return &tryReader{nextLines: r}
-}
-
-func (r *tryReader) rewind() {
-	r.rewinded = true
-}
-
-func (r *tryReader) Read(p []byte) (n int, err error) {
-	if !r.rewinded {
-		n, err = r.nextLines.Read(p)
-		if err != nil {
-			r.content = append(r.content, p[:n]...)
-		}
-		return n, err
-	}
-	length := len(r.content)
-	if length >= len(p) {
-		copy(p, r.content[:len(p)])
-		r.content = r.content[len(p):]
-		return len(p), nil
-	}
-	copy(p, r.content)
-	r.content = nil
-	n, err = r.nextLines.Read(p[:length])
-	return n + length, err
-}
-
 func parseAndSolve(r io.Reader) error {
 	content, err := ioutil.ReadAll(r)
 	if err != nil {
@@ -82,8 +47,12 @@ func parseAndSolve(r io.Reader) error {
 	}
 	r2 = strings.NewReader(string(content))
 	pb, errCNF := solver.ParseCNF(r2)
-	if errCNF != nil {
-		return fmt.Errorf("could not parse content as DIMACS (%v) nor as boolean formula (%v)", errCNF, errBF)
+	if errCNF == nil {
+		return solveCNF(pb)
+	}
+	pb, errPBS := solver.ParsePBS(r2)
+	if errPBS != nil {
+		return fmt.Errorf("could not parse content as DIMACS (%v), as boolean formula (%v), nor as a pseudo-boolean problem (%v)", errCNF, errBF, errPBS)
 	}
 	return solveCNF(pb)
 }
