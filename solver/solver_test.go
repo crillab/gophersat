@@ -39,11 +39,7 @@ var tests = []test{
 	{"testcnf/200.cnf", Unsat},
 	{"testcnf/225.cnf", Sat},
 	{"testcnf/250.cnf", Unsat},
-	{"testcnf/275.cnf", Sat},
-	{"testcnf/300.cnf", Sat},
 	{"testcnf/hoons-vbmc-lucky7.cnf", Unsat},
-	// Commented out because solving this problem takes a very long times and makes go test crash because of the timeout
-	/*{"testcnf/325.cnf", Sat},*/
 }
 
 func TestSolver(t *testing.T) {
@@ -149,6 +145,27 @@ func TestParseCardConstrsTrivial(t *testing.T) {
 		t.Errorf("could not get model: %v", err)
 	} else if !model[IntToVar(1)] || !model[IntToVar(2)] || !model[IntToVar(3)] {
 		t.Errorf("invalid model, expected all true bindings, got %v", model)
+	}
+}
+
+func TestPigeonCard(t *testing.T) {
+	pb := ParseCardConstrs([]CardConstr{
+		AtLeast1(1, 2, 3),
+		AtMost1(1, 2, 3),
+		AtLeast1(4, 5, 6),
+		AtMost1(4, 5, 6),
+		AtLeast1(7, 8, 9),
+		AtMost1(7, 8, 9),
+		AtLeast1(10, 11, 12),
+		AtMost1(10, 11, 12),
+		AtMost1(1, 4, 7, 10),
+		AtMost1(2, 5, 8, 11),
+		AtMost1(3, 6, 9, 12),
+	})
+	s := New(pb)
+	if status := s.Solve(); status == Sat {
+		model, _ := s.Model()
+		t.Errorf("model found for pigeon problem: %v", model)
 	}
 }
 

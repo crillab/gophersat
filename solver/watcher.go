@@ -1,9 +1,6 @@
 package solver
 
-import (
-	"log"
-	"sort"
-)
+import "sort"
 
 type watcher struct {
 	other  Lit // Another lit from the clause
@@ -79,13 +76,22 @@ func (s *Solver) watchClause(c *Clause) {
 		s.wl.wlistBin[neg0] = append(s.wl.wlistBin[neg0], watcher{clause: c, other: second})
 		s.wl.wlistBin[neg1] = append(s.wl.wlistBin[neg1], watcher{clause: c, other: first})
 	} else {
-		if c.Cardinality() > 1 {
-			log.Printf("watching clause of cardinality %d: %v", c.Cardinality(), c.CNF())
-		}
-		for i := 0; i < c.Cardinality()+1; i++ {
-			lit := c.Get(i)
-			neg := lit.Negation()
-			s.wl.wlist[neg] = append(s.wl.wlist[neg], c)
+		if c.PseudoBoolean() {
+			w := 0
+			i := 0
+			for w <= c.Cardinality() {
+				lit := c.Get(i)
+				neg := lit.Negation()
+				s.wl.wlist[neg] = append(s.wl.wlist[neg], c)
+				w += c.Weight(i)
+				i++
+			}
+		} else {
+			for i := 0; i < c.Cardinality()+1; i++ {
+				lit := c.Get(i)
+				neg := lit.Negation()
+				s.wl.wlist[neg] = append(s.wl.wlist[neg], c)
+			}
 		}
 	}
 }
@@ -179,24 +185,35 @@ func (s *Solver) unifyLiteral(lit Lit, lvl decLevel) *Clause {
 			}
 		}
 		for _, c := range s.wl.wlist[lit] {
-			res, units := s.simplifyCardClause(c)
-			// res, unit := s.simplifyClause(c)
-			switch res {
-			case Unsat: // A conflict was met in current clause
-				return c
-			case Unit:
-				unit := units[0]
-				v := unit.Var()
-				s.reason[v] = c
-				c.lock()
-				s.model[v] = lvlToSignedLvl(unit, lvl)
-				s.trail = append(s.trail, unit)
+			if c.Cardinality() == 1 {
+				res, unit := s.simplifyClause(c)
+				if res == Unsat {
+					return c
+				} else if res == Unit {
+					s.propagateUnit(c, lvl, unit)
+				}
+			} else if c.PseudoBoolean() {
+				if !s.simplifyPseudoBool(c, lvl) {
+					return c
+				}
+			} else {
+				if !s.simplifyCardClause(c, lvl) {
+					return c
+				}
 			}
 		}
 		ptr++
 	}
 	// No unsat clause was met
 	return nil
+}
+
+func (s *Solver) propagateUnit(c *Clause, lvl decLevel, unit Lit) {
+	v := unit.Var()
+	s.reason[v] = c
+	c.lock()
+	s.model[v] = lvlToSignedLvl(unit, lvl)
+	s.trail = append(s.trail, unit)
 }
 
 // simplifyClause simplifies the given clause according to current binding.
@@ -208,7 +225,7 @@ func (s *Solver) simplifyClause(clause *Clause) (Status, Lit) {
 	len := clause.Len()
 	for i := 0; i < len; i++ {
 		lit := clause.Get(i)
-		if assign := s.model[lit.Var()]; assign == 0 {
+		if status := s.litStatus(lit); status == Indet {
 			if found {
 				// 2 lits are known to be unbounded
 				switch freeIdx {
@@ -240,7 +257,7 @@ func (s *Solver) simplifyClause(clause *Clause) (Status, Lit) {
 			}
 			freeIdx = i
 			found = true
-		} else if (assign > 0) == lit.IsPositive() {
+		} else if status == Sat {
 			return Sat, -1
 		}
 	}
@@ -250,57 +267,56 @@ func (s *Solver) simplifyClause(clause *Clause) (Status, Lit) {
 	return Unit, clause.Get(freeIdx)
 }
 
-// simplifyCardClauses simplifies a clause of cardinality > 1.
-func (s *Solver) simplifyCardClause(clause *Clause) (Status, []Lit) {
+// simplifyCardClauses simplifies a clause of cardinality > 1, but with all weights = 1.
+// returns false iff the clause cannot be satisfied.
+func (s *Solver) simplifyCardClause(clause *Clause, lvl decLevel) bool {
 	length := clause.Len()
 	card := clause.Cardinality()
-	if card > 1 {
-		log.Printf("simplifying clause %s (cardinality %d)", clause.CNF(), card)
-	}
 	nbTrue := 0
 	nbFalse := 0
 	nbUnb := 0
 	for i := 0; i < length; i++ {
 		lit := clause.Get(i)
-		if assign := s.model[lit.Var()]; assign == 0 {
+		switch s.litStatus(lit) {
+		case Indet:
 			nbUnb++
 			if nbUnb+nbTrue > card {
 				break
 			}
-		} else if (assign > 0) == lit.IsPositive() {
+		case Sat:
 			nbTrue++
 			if nbTrue == card {
-				return Sat, nil
+				return true
 			}
 			if nbUnb+nbTrue > card {
 				break
 			}
-		} else {
+		case Unsat:
 			nbFalse++
 			if length-nbFalse < card {
-				return Unsat, nil
+				return false
 			}
 		}
 	}
 	if nbTrue >= card {
-		return Sat, nil
+		return true
 	}
 	if nbUnb+nbTrue == card {
 		// All unbounded lits must be bound to make the clause true
-		res := make([]Lit, 0, nbUnb)
 		i := 0
-		for len(res) < nbUnb {
+		for nbUnb > 0 {
 			lit := clause.Get(i)
 			if s.model[lit.Var()] == 0 {
-				res = append(res, lit)
+				s.propagateUnit(clause, lvl, lit)
+				nbUnb--
 			} else {
 				i++
 			}
 		}
-		return Unit, res
+		return true
 	}
 	s.swapFalse(clause)
-	return Many, nil
+	return true
 }
 
 // swapFalse swaps enough literals from the clause so that all watching literals are either true or unbounded lits.
@@ -309,11 +325,9 @@ func (s *Solver) swapFalse(clause *Clause) {
 	card := clause.Cardinality()
 	i := 0
 	j := card + 1
-	nbSwaps := 0
 	for i < card+1 {
 		lit := clause.Get(i)
-		for s.model[lit.Var()] == 0 || ((s.model[lit.Var()] > 0) == lit.IsPositive()) {
-			// looking for the next falsified lit
+		for s.litStatus(lit) != Unsat {
 			i++
 			if i == card+1 {
 				return
@@ -321,18 +335,135 @@ func (s *Solver) swapFalse(clause *Clause) {
 			lit = clause.Get(i)
 		}
 		lit = clause.Get(j)
-		for s.model[lit.Var()] != 0 && ((s.model[lit.Var()] > 0) != lit.IsPositive()) {
-			// looking for the previous true or unbounded lit
+		for s.litStatus(lit) == Unsat {
 			j++
 			lit = clause.Get(j)
 		}
 		ni := &s.wl.wlist[clause.Get(i).Negation()]
 		nj := &s.wl.wlist[clause.Get(j).Negation()]
 		clause.swap(i, j)
-		nbSwaps++
 		*ni = removeFrom(*ni, clause)
 		*nj = append(*nj, clause)
 		i++
 		j++
+	}
+}
+
+// sumWeights returns the sum of weights of the given PB clause, if the clause is not SAT yet.
+// If the clause is already SAT, it returns true and the given sum value
+// is meaningless.
+func (s *Solver) sumWeights(c *Clause) (sum int, sat bool) {
+	sum = 0
+	sumSat := 0
+	card := c.Cardinality()
+	for i, v := range c.weights {
+		if status := s.litStatus(c.Get(i)); status == Indet {
+			sum += v
+		} else if status == Sat {
+			sum += v
+			sumSat += v
+			if sumSat >= card {
+				return sum, true
+			}
+		}
+	}
+	return sum, false
+}
+
+// propagateAll propagates all unbounded literals from c as unit literals
+func (s *Solver) propagateAll(c *Clause, lvl decLevel) {
+	for i := 0; i < c.Len(); i++ {
+		if lit := c.Get(i); s.litStatus(lit) == Indet {
+			s.propagateUnit(c, lvl, lit)
+		}
+	}
+}
+
+// simplifyPseudoBool simplifies a pseudo-boolean constraint.
+// propagates unit literals, if any.
+// returns false if the clause cannot be satisfied.
+func (s *Solver) simplifyPseudoBool(clause *Clause, lvl decLevel) bool {
+	card := clause.Cardinality()
+	foundUnit := true
+	for foundUnit {
+		sumW, sat := s.sumWeights(clause)
+		if sat {
+			return true
+		}
+		if sumW < card {
+			return false
+		}
+		if sumW == card {
+			s.propagateAll(clause, lvl)
+			return true
+		}
+		foundUnit = false
+		for i := 0; i < clause.Len(); i++ {
+			lit := clause.Get(i)
+			if s.litStatus(lit) == Indet && sumW-clause.Weight(i) < card { // lit can't be falsified
+				s.propagateUnit(clause, lvl, lit)
+				foundUnit = true
+			}
+		}
+	}
+	s.swapFalsePB(clause)
+	return true
+}
+
+// nbWatches returns the nb of watched literals needed for the given clause.
+func nbWatches(c *Clause) int {
+	card := c.Cardinality()
+	sum := 0
+	i := 0
+	for sum <= card {
+		sum += c.Weight(i)
+		i++
+	}
+	return i
+}
+
+// swapFalsePB swaps enough literals from the clause so that all watching literals are either true or unbounded lits.
+func (s *Solver) swapFalsePB(clause *Clause) {
+	card := clause.Cardinality()
+	nbWatch := nbWatches(clause)
+	weight := 0
+	i := 0
+	j := clause.Len() - 1
+	for weight <= card {
+		lit := clause.Get(i)
+		for s.litStatus(lit) != Unsat {
+			if i >= nbWatch { // ith lit now becomes a watched literal
+				ni := &s.wl.wlist[clause.Get(i).Negation()]
+				*ni = append(*ni, clause)
+			}
+			weight += clause.Weight(i)
+			if weight > card {
+				return
+			}
+			i++
+			lit = clause.Get(i)
+		}
+		lit = clause.Get(j)
+		for s.litStatus(lit) == Unsat {
+			j--
+			lit = clause.Get(j)
+		}
+		weight += clause.Weight(j)
+		if i < nbWatch {
+			ni := &s.wl.wlist[clause.Get(i).Negation()]
+			*ni = removeFrom(*ni, clause)
+		}
+		nj := &s.wl.wlist[clause.Get(j).Negation()]
+		*nj = append(*nj, clause)
+		clause.swap(i, j)
+		i++
+		j--
+	}
+	// Remove further, now useless, watches
+	i++
+	for i < nbWatch {
+		ni := &s.wl.wlist[clause.Get(i).Negation()]
+		*ni = removeFrom(*ni, clause)
+		i++
 	}
 }

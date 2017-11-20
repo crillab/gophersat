@@ -119,6 +119,19 @@ func (s *Solver) OutputModel() {
 	}
 }
 
+// litStatus returns whether the literal is made true (Sat) or false (Unsat) by the
+// current bindings, or if it is unbounded (Indet).
+func (s *Solver) litStatus(l Lit) Status {
+	assign := s.model[l.Var()]
+	if assign == 0 {
+		return Indet
+	}
+	if assign > 0 == l.IsPositive() {
+		return Sat
+	}
+	return Unsat
+}
+
 func (s *Solver) varDecayActivity() {
 	s.varInc *= 1 / varDecay
 }

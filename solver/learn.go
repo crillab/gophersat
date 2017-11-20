@@ -20,12 +20,12 @@ func (s *Solver) addClauseLits(confl *Clause, lvl decLevel, met, metLvl []bool, 
 	for i := 0; i < confl.Len(); i++ {
 		l := confl.Get(i)
 		v := l.Var()
-		met[v] = true
-		s.varBumpActivity(v)
-		if s.model[v] == 0 || ((s.model[v] > 0) == l.IsPositive()) {
+		if s.litStatus(l) != Unsat {
 			// In clauses where cardinality > 1, some lits might be true in the conflict clause: ignore them
 			continue
 		}
+		met[v] = true
+		s.varBumpActivity(v)
 		if abs(s.model[v]) == lvl {
 			metLvl[v] = true
 			nbLvl++
@@ -62,11 +62,11 @@ func (s *Solver) learnClause(confl *Clause, lvl decLevel) (learned *Clause, unit
 			for i := 0; i < reason.Len(); i++ {
 				lit := reason.Get(i)
 				if v2 := lit.Var(); !met[v2] {
-					met[v2] = true
-					s.varBumpActivity(v2)
-					if s.model[v2] == 0 || ((s.model[v2] > 0) == lit.IsPositive()) {
+					if s.litStatus(lit) != Unsat {
 						continue
 					}
+					met[v2] = true
+					s.varBumpActivity(v2)
 					if abs(s.model[v2]) == lvl {
 						metLvl[v2] = true
 						nbLvl++

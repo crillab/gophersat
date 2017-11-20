@@ -18,6 +18,23 @@ const (
 	Many
 )
 
+func (s Status) String() string {
+	switch s {
+	case Indet:
+		return "INDETERMINATE"
+	case Sat:
+		return "SAT"
+	case Unsat:
+		return "UNSAT"
+	case Unit:
+		return "UNIT"
+	case Many:
+		return "MANY"
+	default:
+		panic("invalid status")
+	}
+}
+
 // Var start at 0 ; thus the CNF variable 1 is encoded as the Var 0.
 type Var int32
 

@@ -116,6 +116,63 @@ func ParseCardConstrs(constrs []CardConstr) *Problem {
 	return &pb
 }
 
+// ParsePBConstrs parses and returns a PB problem from PBConstr values.
+func ParsePBConstrs(constrs []PBConstr) *Problem {
+	var pb Problem
+	for _, constr := range constrs {
+		card := constr.AtLeast
+		if card <= 0 { // Clause is trivially SAT, ignore
+			continue
+		}
+		sumW := constr.WeightSum()
+		if sumW < card { // Clause cannot be satsfied
+			pb.Status = Unsat
+			return &pb
+		}
+		if sumW == card { // All lits must be true
+			for i := range constr.Lits {
+				if constr.Lits[i] == 0 {
+					panic("literal 0 found in clause")
+				}
+				lit := IntToLit(int32(constr.Lits[i]))
+				v := lit.Var()
+				if int(v) >= pb.NbVars {
+					pb.NbVars = int(v) + 1
+				}
+				pb.Units = append(pb.Units, lit)
+			}
+		} else {
+			lits := make([]Lit, len(constr.Lits))
+			for j, val := range constr.Lits {
+				if val == 0 {
+					panic("literal 0 found in clause")
+				}
+				lits[j] = IntToLit(int32(val))
+				if v := int(lits[j].Var()); v >= pb.NbVars {
+					pb.NbVars = v + 1
+				}
+			}
+			pb.Clauses = append(pb.Clauses, NewPBClause(lits, constr.Weights, card))
+		}
+	}
+	pb.Model = make([]decLevel, pb.NbVars)
+	for _, unit := range pb.Units {
+		v := unit.Var()
+		if pb.Model[v] == 0 {
+			if unit.IsPositive() {
+				pb.Model[v] = 1
+			} else {
+				pb.Model[v] = -1
+			}
+		} else if pb.Model[v] > 0 != unit.IsPositive() {
+			pb.Status = Unsat
+			return &pb
+		}
+	}
+	pb.simplifyPB()
+	return &pb
+}
+
 // Parses a CNF line containing a clause and adds it to the problem.
 func (pb *Problem) parseClause(line string) error {
 	fields := strings.Fields(line)
@@ -189,5 +246,78 @@ func ParseCNF(f io.Reader) (*Problem, error) {
 		}
 	}
 	pb.simplify()
+	return &pb, nil
+}
+
+func (pb *Problem) parsePBLine(line string) error {
+	fields := strings.Fields(line)
+	if len(fields) == 0 {
+		return fmt.Errorf("empty line in file")
+	}
+	if len(fields) < 4 || fields[len(fields)-1] != ";" || len(fields)%2 != 1 {
+		return fmt.Errorf("invalid syntax %q", line)
+	}
+	operator := fields[len(fields)-3]
+	if operator != ">=" && operator != "=" {
+		return fmt.Errorf("invalid operator %q in %q: expected \">=\" or \"=\"", operator, line)
+	}
+	rhs, err := strconv.Atoi(fields[len(fields)-2])
+	if err != nil {
+		return fmt.Errorf("invalid value %q in %q: %v", fields[len(fields)-2], line, err)
+	}
+	terms := fields[:len(fields)-3]
+	weights := make([]int, len(terms)/2)
+	lits := make([]int, len(terms)/2)
+	for i := range weights {
+		w, err := strconv.Atoi(terms[i*2])
+		if err != nil {
+			return fmt.Errorf("invalid weight %q in %q: %v", terms[i*2], line, err)
+		}
+		weights[i] = w
+		l := terms[i*2+1]
+		if l[0] != 'x' || len(l) < 2 {
+			return fmt.Errorf("invalid variable name %q in %q", l, line)
+		}
+		if l[1] == '~' {
+			lits[i], err = strconv.Atoi(l[2:])
+		} else {
+			lits[i], err = strconv.Atoi(l[1:])
+		}
+		if err != nil {
+			return fmt.Errorf("invalid variable %q in %q: %v", l, line, err)
+		}
+		if lits[i] >= pb.NbVars {
+			pb.NbVars = lits[i] + 1
+		}
+		if l[1] == '~' {
+			lits[i] = -lits[i]
+		}
+	}
+	if operator == ">=" {
+		pb.Clauses = append(pb.Clauses, GtEq(lits, weights, rhs).Clause())
+	} else {
+		for _, constr := range Eq(lits, weights, rhs) {
+			pb.Clauses = append(pb.Clauses, constr.Clause())
+		}
+	}
+	return nil
+}
+
+// ParsePBS parses a file corresponding to the PBS syntax.
+// See http://www.cril.univ-artois.fr/PB16/format.pdf for more details.
+func ParsePBS(f io.Reader) (*Problem, error) {
+	scanner := bufio.NewScanner(f)
+	var pb Problem
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" || line[0] == '*' {
+			continue
+		}
+		if err := pb.parsePBLine(line); err != nil {
+			return nil, err
+		}
+	}
+	pb.Model = make([]decLevel, pb.NbVars)
+	pb.simplifyPB()
 	return &pb, nil
 }
