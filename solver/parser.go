@@ -265,33 +265,9 @@ func (pb *Problem) parsePBLine(line string) error {
 	if err != nil {
 		return fmt.Errorf("invalid value %q in %q: %v", fields[len(fields)-2], line, err)
 	}
-	terms := fields[:len(fields)-3]
-	weights := make([]int, len(terms)/2)
-	lits := make([]int, len(terms)/2)
-	for i := range weights {
-		w, err := strconv.Atoi(terms[i*2])
-		if err != nil {
-			return fmt.Errorf("invalid weight %q in %q: %v", terms[i*2], line, err)
-		}
-		weights[i] = w
-		l := terms[i*2+1]
-		if l[0] != 'x' || len(l) < 2 {
-			return fmt.Errorf("invalid variable name %q in %q", l, line)
-		}
-		if l[1] == '~' {
-			lits[i], err = strconv.Atoi(l[2:])
-		} else {
-			lits[i], err = strconv.Atoi(l[1:])
-		}
-		if err != nil {
-			return fmt.Errorf("invalid variable %q in %q: %v", l, line, err)
-		}
-		if lits[i] >= pb.NbVars {
-			pb.NbVars = lits[i] + 1
-		}
-		if l[1] == '~' {
-			lits[i] = -lits[i]
-		}
+	weights, lits, err := pb.parseTerms(fields, line)
+	if err != nil {
+		return nil
 	}
 	if operator == ">=" {
 		pb.Clauses = append(pb.Clauses, GtEq(lits, weights, rhs).Clause())
@@ -301,6 +277,38 @@ func (pb *Problem) parsePBLine(line string) error {
 		}
 	}
 	return nil
+}
+
+func (pb *Problem) parseTerms(fields []string, line string) (weights []int, lits []int, err error) {
+	terms := fields[:len(fields)-3]
+	weights = make([]int, len(terms)/2)
+	lits = make([]int, len(terms)/2)
+	for i := range weights {
+		w, err := strconv.Atoi(terms[i*2])
+		if err != nil {
+			return nil, nil, fmt.Errorf("invalid weight %q in %q: %v", terms[i*2], line, err)
+		}
+		weights[i] = w
+		l := terms[i*2+1]
+		if l[0] != 'x' || len(l) < 2 {
+			return nil, nil, fmt.Errorf("invalid variable name %q in %q", l, line)
+		}
+		if l[1] == '~' {
+			lits[i], err = strconv.Atoi(l[2:])
+		} else {
+			lits[i], err = strconv.Atoi(l[1:])
+		}
+		if err != nil {
+			return nil, nil, fmt.Errorf("invalid variable %q in %q: %v", l, line, err)
+		}
+		if lits[i] >= pb.NbVars {
+			pb.NbVars = lits[i] + 1
+		}
+		if l[1] == '~' {
+			lits[i] = -lits[i]
+		}
+	}
+	return weights, lits, nil
 }
 
 // ParsePBS parses a file corresponding to the PBS syntax.
