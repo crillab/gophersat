@@ -50,6 +50,7 @@ func parseAndSolve(r io.Reader) error {
 	if errCNF == nil {
 		return solveCNF(pb)
 	}
+	r2 = strings.NewReader(string(content))
 	pb, errPBS := solver.ParsePBS(r2)
 	if errPBS != nil {
 		return fmt.Errorf("could not parse content as DIMACS (%v), as boolean formula (%v), nor as a pseudo-boolean problem (%v)", errCNF, errBF, errPBS)

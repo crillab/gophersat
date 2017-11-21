@@ -261,7 +261,7 @@ func (pb *Problem) parsePBLine(line string) error {
 	}
 	weights, lits, err := pb.parseTerms(fields, line)
 	if err != nil {
-		return nil
+		return err
 	}
 	if operator == ">=" {
 		pb.Clauses = append(pb.Clauses, GtEq(lits, weights, rhs).Clause())
@@ -318,6 +318,9 @@ func ParsePBS(f io.Reader) (*Problem, error) {
 		if err := pb.parsePBLine(line); err != nil {
 			return nil, err
 		}
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("could not parse PBS: %v", err)
 	}
 	pb.Model = make([]decLevel, pb.NbVars)
 	pb.simplifyPB()
