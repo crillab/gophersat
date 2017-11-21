@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"log"
 	"strconv"
 	"strings"
 )
@@ -244,20 +245,26 @@ func ParseCNF(f io.Reader) (*Problem, error) {
 }
 
 func (pb *Problem) parsePBLine(line string) error {
-	fields := strings.Fields(line)
+	if line == "" {
+		return fmt.Errorf("empty line in file")
+	}
+	if line[len(line)-1] != ';' {
+		return fmt.Errorf("line %q does not end with semicolon", line)
+	}
+	fields := strings.Fields(line[:len(line)-1])
 	if len(fields) == 0 {
 		return fmt.Errorf("empty line in file")
 	}
-	if len(fields) < 4 || fields[len(fields)-1] != ";" || len(fields)%2 != 1 {
+	if len(fields) < 4 || len(fields)%2 != 0 {
 		return fmt.Errorf("invalid syntax %q", line)
 	}
-	operator := fields[len(fields)-3]
+	operator := fields[len(fields)-2]
 	if operator != ">=" && operator != "=" {
 		return fmt.Errorf("invalid operator %q in %q: expected \">=\" or \"=\"", operator, line)
 	}
-	rhs, err := strconv.Atoi(fields[len(fields)-2])
+	rhs, err := strconv.Atoi(fields[len(fields)-1])
 	if err != nil {
-		return fmt.Errorf("invalid value %q in %q: %v", fields[len(fields)-2], line, err)
+		return fmt.Errorf("invalid value %q in %q: %v", fields[len(fields)-1], line, err)
 	}
 	weights, lits, err := pb.parseTerms(fields, line)
 	if err != nil {
@@ -274,7 +281,7 @@ func (pb *Problem) parsePBLine(line string) error {
 }
 
 func (pb *Problem) parseTerms(fields []string, line string) (weights []int, lits []int, err error) {
-	terms := fields[:len(fields)-3]
+	terms := fields[:len(fields)-2]
 	weights = make([]int, len(terms)/2)
 	lits = make([]int, len(terms)/2)
 	for i := range weights {
@@ -284,10 +291,10 @@ func (pb *Problem) parseTerms(fields []string, line string) (weights []int, lits
 		}
 		weights[i] = w
 		l := terms[i*2+1]
-		if l[0] != 'x' || len(l) < 2 {
+		if !strings.HasPrefix(l, "x") && !strings.HasPrefix(l, "~x") || len(l) < 2 {
 			return nil, nil, fmt.Errorf("invalid variable name %q in %q", l, line)
 		}
-		if l[1] == '~' {
+		if l[0] == '~' {
 			lits[i], err = strconv.Atoi(l[2:])
 		} else {
 			lits[i], err = strconv.Atoi(l[1:])
@@ -295,10 +302,10 @@ func (pb *Problem) parseTerms(fields []string, line string) (weights []int, lits
 		if err != nil {
 			return nil, nil, fmt.Errorf("invalid variable %q in %q: %v", l, line, err)
 		}
-		if lits[i] >= pb.NbVars {
-			pb.NbVars = lits[i] + 1
+		if lits[i] > pb.NbVars {
+			pb.NbVars = lits[i]
 		}
-		if l[1] == '~' {
+		if l[0] == '~' {
 			lits[i] = -lits[i]
 		}
 	}
@@ -324,5 +331,6 @@ func ParsePBS(f io.Reader) (*Problem, error) {
 	}
 	pb.Model = make([]decLevel, pb.NbVars)
 	pb.simplifyPB()
+	log.Printf("problem is %s", pb.PBString())
 	return &pb, nil
 }
