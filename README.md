@@ -121,9 +121,12 @@ describing and solving NP-hard problems that can easily be reduced to a SAT inst
 Not anymore. The `bf` (for "boolean formula") package provides facilities to
 translate any boolean formula to CNF.
 
+## Can I know how many solutions there are for a given formula?
+This is known as model counting, and yes, there is a function for that: solver.Solver.CountModels.
+
 ## What else does it feature?
 For the moment, not very much. It does not
-propose incremental SAT solving, MUS extraction, UNSAT certification,
-model counting  and the like. It does not even feature a preprocessor.
+propose incremental SAT solving, MUS extraction, UNSAT certification
+and the like. It does not even feature a preprocessor.
 
 But all those features might come later. Feel free to ask for features. 

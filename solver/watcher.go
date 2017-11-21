@@ -36,6 +36,15 @@ func (s *Solver) initWatcherList(clauses []*Clause) {
 	}
 }
 
+// appendClause appends a new clause to the set of clause.
+// This is not a learned clause, but a clause that is part of the problem added afterwards (during model counting, for instance).
+func (s *Solver) appendClause(clause *Clause) {
+	s.wl.clauses = append(s.wl.clauses, clause)
+	s.wl.clauses[s.wl.nbOriginal], s.wl.clauses[len(s.wl.clauses)-1] = s.wl.clauses[len(s.wl.clauses)-1], s.wl.clauses[s.wl.nbOriginal]
+	s.wl.nbOriginal++
+	s.watchClause(clause)
+}
+
 // bumpNbMax increases the max nb of clauses used.
 // It is typically called after a restart.
 func (s *Solver) bumpNbMax() {
@@ -137,7 +146,7 @@ func (s *Solver) reduceLearned() {
 	s.wl.nbLearned -= nbRemoved
 }
 
-// Adds the given clause and updates watchers.
+// Adds the given learned clause and updates watchers.
 // If too many clauses have been learned yet, one will be removed.
 func (s *Solver) addClause(c *Clause) {
 	s.wl.nbLearned++

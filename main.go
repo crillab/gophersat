@@ -72,6 +72,16 @@ func solveCNF(pb *solver.Problem) error {
 	return nil
 }
 
+func countModels(pb *solver.Problem) error {
+	fmt.Printf("c ======================================================================================\n")
+	fmt.Printf("c | Number of clauses   : %9d                                                    |\n", len(pb.Clauses))
+	fmt.Printf("c | Number of variables : %9d                                                    |\n", pb.NbVars)
+	s := solver.New(pb)
+	s.Verbose = true
+	fmt.Printf("%d models found\n", s.CountModels())
+	return nil
+}
+
 func solveBF(f bf.Formula) error {
 	sat, model, err := bf.Solve(f)
 	if err != nil {

@@ -225,30 +225,24 @@ func backtrackData(c *Clause, model []decLevel) (btLevel decLevel, lit Lit) {
 func (s *Solver) search() Status {
 	lvl := decLevel(2) // Level starts at 2, for implementation reasons : 1 is for top-level bindings; 0 means "no level assigned yet"
 	lit := s.chooseLit()
-	// log.Printf("LVL %d: chose %d", lvl, lit.Int())
 	for lit != -1 {
 		if conflict := s.unifyLiteral(lit, lvl); conflict == nil { // Pick new branch or restart
 			if s.lbdStats.mustRestart() {
-				// log.Printf("must restart")
 				s.lbdStats.clear()
 				s.cleanupBindings(1)
 				return Indet
 			}
 			if s.Stats.NbConflicts >= s.wl.idxReduce*s.wl.nbMax {
-				// log.Printf("musr reduce")
 				s.wl.idxReduce = (s.Stats.NbConflicts / s.wl.nbMax) + 1
 				s.reduceLearned()
 				s.bumpNbMax()
 			}
 			lvl++
 			lit = s.chooseLit()
-			// log.Printf("LVL %d: chose %d", lvl, lit.Int())
 		} else { // Deal with conflict
 			s.Stats.NbConflicts++
-			// log.Printf("conflict clause %v, %d conflicts now", conflict.CNF(), s.Stats.NbConflicts)
 			learnt, unit := s.learnClause(conflict, lvl)
 			if learnt == nil { // Unit clause was learned: this lit is known for sure
-				// log.Printf("learned unit lit %d", unit.Int())
 				s.lbdStats.add(1)
 				s.Stats.NbUnitLearned++
 				s.cleanupBindings(1)
@@ -260,7 +254,6 @@ func (s *Solver) search() Status {
 				}
 				lit = s.chooseLit()
 			} else {
-				// log.Printf("learned clause %v", learnt.CNF())
 				if learnt.Len() == 2 {
 					s.Stats.NbBinaryLearned++
 				}
@@ -271,7 +264,6 @@ func (s *Solver) search() Status {
 				s.cleanupBindings(lvl)
 				s.reason[lit.Var()] = learnt
 				learnt.lock()
-				// log.Printf("LVL %d: chose %d", lvl, lit.Int())
 			}
 		}
 	}
@@ -311,6 +303,57 @@ func (s *Solver) Solve() Status {
 		fmt.Printf("c ======================================================================================\n")
 	}
 	return s.status
+}
+
+// CountModels returns the total number of models for the given problem.
+func (s *Solver) CountModels() int {
+	nb := 0
+	for s.status != Unsat {
+		for s.status == Indet {
+			s.search()
+			if s.status == Indet {
+				s.Stats.NbRestarts++
+			}
+		}
+		if s.status == Sat {
+			nb++
+			s.status = Indet
+			s.learnDecisions()
+		}
+	}
+	return nb
+}
+
+// learnDecisions learns the negation of all decision values once a model was found.
+// This will allow for searching other models.
+func (s *Solver) learnDecisions() {
+	var lits []Lit
+	for i, r := range s.reason {
+		if r == nil && abs(s.model[i]) != 1 {
+			if s.model[i] < 0 {
+				lits = append(lits, IntToLit(int32(i+1)))
+			} else {
+				lits = append(lits, IntToLit(int32(-i-1)))
+			}
+		}
+	}
+	switch len(lits) {
+	case 0:
+		s.status = Unsat
+	case 1:
+		unit := lits[0]
+		s.lbdStats.add(1)
+		s.Stats.NbUnitLearned++
+		s.cleanupBindings(1)
+		s.model[unit.Var()] = lvlToSignedLvl(unit, 1)
+		s.trail = append(s.trail, unit)
+		if s.unifyLiteral(unit, 1) != nil {
+			s.status = Unsat
+		}
+	default:
+		s.appendClause(NewClause(lits))
+		s.cleanupBindings(1)
+	}
 }
 
 // Model returns a slice that associates, to each variable, its binding.
