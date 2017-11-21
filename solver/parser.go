@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"log"
 	"strconv"
 	"strings"
 )
@@ -331,6 +330,5 @@ func ParsePBS(f io.Reader) (*Problem, error) {
 	}
 	pb.Model = make([]decLevel, pb.NbVars)
 	pb.simplifyPB()
-	log.Printf("problem is %s", pb.PBString())
 	return &pb, nil
 }
