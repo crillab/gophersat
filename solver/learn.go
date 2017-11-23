@@ -1,7 +1,5 @@
 package solver
 
-import "log"
-
 // computeLbd computes and sets c's LBD (Literal Block Distance).
 func (c *Clause) computeLbd(model Model) {
 	c.setLbd(1)
@@ -44,15 +42,6 @@ var bufLits = make([]Lit, 10000) // Buffer for lits in learnClause. Used to redu
 // the clause itself, if its len is at least 2.
 // a nil clause and a unit literal, if its len is exactly 1.
 func (s *Solver) learnClause(confl *Clause, lvl decLevel) (learned *Clause, unit Lit) {
-	log.Printf("confl=%s, trail=%v", confl.PBString(), s.trail)
-	for i := 0; i < confl.Len(); i++ {
-		lit := confl.Get(i)
-		reason := ""
-		if s.reason[lit.Var()] != nil {
-			reason = s.reason[lit.Var()].PBString()
-		}
-		log.Printf("lit=%d, status=%s, model=%d, reason=%s", lit.Int(), s.litStatus(lit), s.model[lit.Var()], reason)
-	}
 	s.clauseBumpActivity(confl)
 	lits := bufLits[:1]             // Not 0: make room for asserting literal
 	buf := make([]bool, s.nbVars*2) // Buffer for met and metLvl; reduces allocs/deallocs
@@ -63,7 +52,6 @@ func (s *Solver) learnClause(confl *Clause, lvl decLevel) (learned *Clause, unit
 	ptr := len(s.trail) - 1 // Pointer in propagation trail
 	for nbLvl > 1 {         // We will stop once we only have one lit from current level.
 		for !metLvl[s.trail[ptr].Var()] {
-			log.Printf("ptr=%d, val=%d", ptr, s.trail[ptr].Int())
 			ptr--
 		}
 		v := s.trail[ptr].Var()
