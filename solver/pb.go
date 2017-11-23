@@ -54,7 +54,7 @@ func AtMost(lits []int, n int) PBConstr {
 // must be at least n.
 // Will panic if len(weights) != len(lits).
 func GtEq(lits []int, weights []int, n int) PBConstr {
-	if len(lits) != len(weights) {
+	if len(weights) != 0 && len(lits) != len(weights) {
 		panic("not as many lits as weights")
 	}
 	for i := range weights {

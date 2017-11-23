@@ -3,6 +3,7 @@ package solver
 import (
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 )
 
@@ -16,7 +17,8 @@ type Clause struct {
 	// NOTE: actual cardinality is value + 1, since this is the default value and go defaults to 0.
 	lbdValue uint32
 	activity float32
-	weights  []int // For PB constraints, weight of each literal. If nil, weights are all 1.
+	weights  []int  // For PB constraints, weight of each literal. If nil, weights are all 1.
+	watched  []bool // For PB constraints, indices of watched literals.
 }
 
 const (
@@ -40,12 +42,29 @@ func NewCardClause(lits []Lit, card int) *Clause {
 	return &Clause{lits: lits, lbdValue: uint32(card - 1)}
 }
 
+// Used to sort literals when constructing PB clause.
+type weightedLits struct {
+	lits    []Lit
+	weights []int
+}
+
+func (wl weightedLits) Less(i, j int) bool { return wl.weights != nil && wl.weights[i] > wl.weights[j] }
+func (wl weightedLits) Len() int           { return len(wl.lits) }
+func (wl *weightedLits) Swap(i, j int) {
+	wl.lits[i], wl.lits[j] = wl.lits[j], wl.lits[i]
+	if wl.weights != nil {
+		wl.weights[i], wl.weights[j] = wl.weights[j], wl.weights[i]
+	}
+}
+
 // NewPBClause returns a pseudo-boolean clause with the given lits, weights and minimal cardinality.
 func NewPBClause(lits []Lit, weights []int, card int) *Clause {
 	if card < 1 {
 		panic("Invalid cardinality value")
 	}
-	return &Clause{lits: lits, lbdValue: uint32(card - 1), weights: weights}
+	wl := &weightedLits{lits: lits, weights: weights}
+	sort.Sort(wl)
+	return &Clause{lits: lits, lbdValue: uint32(card - 1), weights: weights, watched: make([]bool, len(lits))}
 }
 
 // NewLearnedClause returns a new clause marked as learned.

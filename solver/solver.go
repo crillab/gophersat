@@ -2,6 +2,7 @@ package solver
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -273,6 +274,11 @@ func (s *Solver) search() Status {
 
 // Solve solves the problem associated with the solver and returns the appropriate status.
 func (s *Solver) Solve() Status {
+	if s.status == Unsat {
+		return s.status
+	}
+	s.learnDecisions()
+	s.status = Indet
 	if s.Verbose {
 		go func() { // Function displaying stats during resolution
 			fmt.Printf("c ======================================================================================\n")
@@ -329,7 +335,7 @@ func (s *Solver) CountModels() int {
 func (s *Solver) learnDecisions() {
 	var lits []Lit
 	for i, r := range s.reason {
-		if r == nil && abs(s.model[i]) != 1 {
+		if r == nil && abs(s.model[i]) > 1 {
 			if s.model[i] < 0 {
 				lits = append(lits, IntToLit(int32(i+1)))
 			} else {
@@ -339,9 +345,19 @@ func (s *Solver) learnDecisions() {
 	}
 	switch len(lits) {
 	case 0:
-		s.status = Unsat
+		if s.status == Sat { // We already had a model: no more can be found
+			s.status = Unsat
+		}
 	case 1:
-		unit := lits[0]
+		s.propagateUnits(lits)
+	default:
+		s.appendClause(NewClause(lits))
+		s.cleanupBindings(1)
+	}
+}
+
+func (s *Solver) propagateUnits(units []Lit) {
+	for _, unit := range units {
 		s.lbdStats.add(1)
 		s.Stats.NbUnitLearned++
 		s.cleanupBindings(1)
@@ -349,10 +365,61 @@ func (s *Solver) learnDecisions() {
 		s.trail = append(s.trail, unit)
 		if s.unifyLiteral(unit, 1) != nil {
 			s.status = Unsat
+			return
 		}
-	default:
-		s.appendClause(NewClause(lits))
-		s.cleanupBindings(1)
+	}
+}
+
+// PBString returns a representation of the solver's state as a pseudo-boolean problem.
+func (s *Solver) PBString() string {
+	clauses := make([]string, len(s.wl.clauses))
+	for i, c := range s.wl.clauses {
+		clauses[i] = c.PBString()
+	}
+	for i := 0; i < len(s.model); i++ {
+		if s.model[i] == 1 {
+			clauses = append(clauses, fmt.Sprintf("x%d = 1", i+1))
+		} else if s.model[i] == -1 {
+			clauses = append(clauses, fmt.Sprintf("x%d = 0", i+1))
+		}
+	}
+	return strings.Join(clauses, "\n")
+}
+
+// AppendClause appends a new clause to the set of clauses.
+// This is not a learned clause, but a clause that is part of the problem added afterwards (during model counting, for instance).
+func (s *Solver) AppendClause(clause *Clause) {
+	s.cleanupBindings(1)
+	card := clause.Cardinality()
+	minW := 0
+	maxW := 0
+	i := 0
+	for i < clause.Len() {
+		lit := clause.Get(i)
+		switch s.litStatus(lit) {
+		case Sat:
+			w := clause.Weight(i)
+			minW += w
+			maxW += w
+			clause.removeLit(i)
+		case Unsat:
+			clause.removeLit(i)
+		default:
+			maxW += clause.Weight(i)
+			i++
+		}
+	}
+	if minW >= card { // clause is already sat
+		return
+	}
+	if maxW < card { // clause cannot be satisfied
+		s.status = Unsat
+		return
+	}
+	if maxW == card { // Unit
+		s.propagateUnits(clause.lits)
+	} else {
+		s.appendClause(clause)
 	}
 }
 
