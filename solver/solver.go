@@ -63,12 +63,14 @@ type Solver struct {
 	polarity []bool    // Preferred sign for each var
 	// For each var, clause considered when it was unified
 	// If the var is not bound yet, or if it was bound by a decision, value is nil.
-	reason    []*Clause
-	varQueue  queue
-	varInc    float64 // On each var bump, how big the increment should be
-	clauseInc float32 // On each var bump, how big the increment should be
-	lbdStats  lbdStats
-	Stats     Stats // Statistics about the solving process.
+	reason     []*Clause
+	varQueue   queue
+	varInc     float64 // On each var bump, how big the increment should be
+	clauseInc  float32 // On each var bump, how big the increment should be
+	lbdStats   lbdStats
+	Stats      Stats // Statistics about the solving process.
+	minLits    []Lit // Lits to minimize if the problem was an optimization problem.
+	minWeights []int // Weight of each lit to minimize if the problem was an optimization problem.
 }
 
 // New makes a solver, given a number of variables and a set of clauses.
@@ -77,15 +79,17 @@ type Solver struct {
 func New(problem *Problem) *Solver {
 	nbVars := problem.NbVars
 	s := &Solver{
-		nbVars:    nbVars,
-		status:    problem.Status,
-		trail:     make([]Lit, 0, nbVars),
-		model:     problem.Model,
-		activity:  make([]float64, nbVars),
-		polarity:  make([]bool, nbVars),
-		reason:    make([]*Clause, nbVars),
-		varInc:    1.0,
-		clauseInc: 1.0,
+		nbVars:     nbVars,
+		status:     problem.Status,
+		trail:      make([]Lit, 0, nbVars),
+		model:      problem.Model,
+		activity:   make([]float64, nbVars),
+		polarity:   make([]bool, nbVars),
+		reason:     make([]*Clause, nbVars),
+		varInc:     1.0,
+		clauseInc:  1.0,
+		minLits:    problem.minLits,
+		minWeights: problem.minWeights,
 	}
 	s.initWatcherList(problem.Clauses)
 	s.varQueue = newQueue(s.activity)
@@ -424,14 +428,56 @@ func (s *Solver) AppendClause(clause *Clause) {
 }
 
 // Model returns a slice that associates, to each variable, its binding.
-// If s's status is not Sat, will return an error.
-func (s *Solver) Model() ([]bool, error) {
+// If s's status is not Sat, the method will panic.
+func (s *Solver) Model() []bool {
 	if s.status != Sat {
-		return nil, fmt.Errorf("cannot call Model() from a non-Sat solver")
+		panic("cannot call Model() from a non-Sat solver")
 	}
 	res := make([]bool, s.nbVars)
 	for i, lvl := range s.model {
 		res[i] = lvl > 0
 	}
-	return res, nil
+	return res
+}
+
+// Minimize tries to find a model that minimizes the weight of the clause defined as the optimisation clause in the problem.
+// If no model can be found, it will return a cost of -1.
+// Otherwise, it will return the cost and model that satisfy the formula, such that no other model with a smaller cost exists.
+// If this function is called on a non-optimization problem, it will either return -1, or a cost of 0 associated with a
+// satosfying model (ie any model is an optimal model).
+func (s *Solver) Minimize() (cost int, model []bool) {
+	status := s.Solve()
+	if status == Unsat { // Problem cannot be satisfied at all
+		return -1, nil
+	}
+	if s.minLits == nil {
+		return 0, s.Model()
+	}
+	for status == Sat {
+		model = s.Model()
+		cost = 0
+		for i, lit := range s.minLits {
+			if model[lit.Var()] {
+				if s.minWeights == nil {
+					cost++
+				} else {
+					cost += s.minWeights[i]
+				}
+			}
+		}
+		if cost == 0 { // All clauses were satisfied: perfect!
+			return 0, model
+		}
+		if s.Verbose {
+			fmt.Printf("o %d\n", cost)
+		}
+		// Add a constraint incrementing current best cost
+		lits2 := make([]Lit, len(s.minLits))
+		weights2 := make([]int, len(s.minWeights))
+		copy(lits2, s.minLits)
+		copy(weights2, s.minWeights)
+		s.AppendClause(NewPBClause(lits2, weights2, cost+1))
+		status = s.Solve()
+	}
+	return cost, model
 }

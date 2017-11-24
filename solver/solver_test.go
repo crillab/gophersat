@@ -3,6 +3,7 @@ package solver
 import (
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -16,11 +17,18 @@ func runTest(test test, t *testing.T) {
 	f, err := os.Open(test.path)
 	if err != nil {
 		t.Error(err.Error())
+		return
 	}
 	defer func() { _ = f.Close() }()
-	pb, err := ParseCNF(f)
+	var pb *Problem
+	if strings.HasSuffix(test.path, "cnf") {
+		pb, err = ParseCNF(f)
+	} else {
+		pb, err = ParseOPB(f)
+	}
 	if err != nil {
 		t.Error(err.Error())
+		return
 	}
 	s := New(pb)
 	if status := s.Solve(); status != test.expected {
@@ -40,6 +48,11 @@ var tests = []test{
 	{"testcnf/225.cnf", Sat},
 	{"testcnf/250.cnf", Unsat},
 	{"testcnf/hoons-vbmc-lucky7.cnf", Unsat},
+	{"testcnf/3col-almost3reg-l010-r009-n1.opb", Unsat},
+	{"testcnf/simple.opb", Sat},
+	{"testcnf/fixed-bandwidth-10.cnf.gz-extracted.pb", Unsat},
+	{"testcnf/ex1.opb", Unsat},
+	{"testcnf/lo_8x8_009.opb", Sat},
 }
 
 func TestSolver(t *testing.T) {
@@ -103,10 +116,7 @@ func TestParseCardConstrs(t *testing.T) {
 	if status := s.Solve(); status != Sat {
 		t.Fatalf("expected sat for cardinality problem %v, got %v", clauses, status)
 	}
-	model, err := s.Model()
-	if err != nil {
-		t.Fatalf("could not get model: %v", err)
-	}
+	model := s.Model()
 	if !model[IntToVar(1)] || !model[IntToVar(2)] || !model[IntToVar(3)] || model[IntToVar(4)] {
 		t.Fatalf("expected model 1, 2, 3, -4, got: %v", model)
 	}
@@ -132,19 +142,21 @@ func TestParseCardConstrsTrivial(t *testing.T) {
 	s = New(pb)
 	if status := s.Solve(); status != Sat {
 		t.Errorf("expected sat, got %v", status)
-	} else if model, err := s.Model(); err != nil {
-		t.Errorf("could not get model: %v", err)
-	} else if !model[IntToVar(1)] || !model[IntToVar(2)] || !model[IntToVar(3)] {
-		t.Errorf("invalid model, expected all true bindings, got %v", model)
+	} else {
+		model := s.Model()
+		if !model[IntToVar(1)] || !model[IntToVar(2)] || !model[IntToVar(3)] {
+			t.Errorf("invalid model, expected all true bindings, got %v", model)
+		}
 	}
 	pb = ParseCardConstrs([]CardConstr{{Lits: []int{1, -2, 3}, AtLeast: 2}, AtLeast1(2)})
 	s = New(pb)
 	if status := s.Solve(); status != Sat {
 		t.Errorf("expected sat, got %v", status)
-	} else if model, err := s.Model(); err != nil {
-		t.Errorf("could not get model: %v", err)
-	} else if !model[IntToVar(1)] || !model[IntToVar(2)] || !model[IntToVar(3)] {
-		t.Errorf("invalid model, expected all true bindings, got %v", model)
+	} else {
+		model := s.Model()
+		if !model[IntToVar(1)] || !model[IntToVar(2)] || !model[IntToVar(3)] {
+			t.Errorf("invalid model, expected all true bindings, got %v", model)
+		}
 	}
 }
 
@@ -164,7 +176,7 @@ func TestPigeonCard(t *testing.T) {
 	})
 	s := New(pb)
 	if status := s.Solve(); status == Sat {
-		model, _ := s.Model()
+		model := s.Model()
 		t.Errorf("model found for pigeon problem: %v", model)
 	}
 }
@@ -181,12 +193,7 @@ func ExampleParseCardConstrs() {
 	if status := s.Solve(); status == Unsat {
 		fmt.Println("Problem is not satisfiable")
 	} else {
-		model, err := s.Model()
-		if err != nil {
-			fmt.Printf("Could not get model: %v", err)
-		} else {
-			fmt.Printf("Model found: %v\n", model)
-		}
+		fmt.Printf("Model found: %v\n", s.Model())
 	}
 	// Output:
 	// Problem is not satisfiable

@@ -32,13 +32,13 @@ n literals true, with n > 1.
 
 ### Solving pseudo-boolean problems
 
-Gophersat can be used as a standalone solver (reading PBS files from a file or
+Gophersat can be used as a standalone solver (reading OPB files from a file or
 standatd input) or as a library in any go program.
 
-For the moment, it can only solve the so-called DEC-SMALLINT-LIN problems,
+For the moment, it can only solve the so-called DEC-SMALLINT-LIN problems and OPT-SMALLINT-LIN,
 i.e decision problems (is there a solution or not), for linear constraints (a sum of weighted literals)
-on small integers (n < 2^30).
-This will be improved in the future, though.
+on small integers (n < 2^30), or optimization problems (what is the best solution, minimizing a given cost function),
+for linear constraints on small integers.
 
 ## What is a SAT solver? What is the SAT problem?
 SAT, which stands for *Boolean Satisfiability Problem*, is the canonical
@@ -97,6 +97,14 @@ can be rewritten as
 The description of a pseudo-boolean problem can be exponentially smaller than its
 propositional counterpart, but solving a psudo-boolean problem is still NP-complete.
 
+Gophersat solves both decision problems (is there a solution at all to the problem),
+and optimization problem.
+An optimization problem is a pseudo-boolean problem associated with a cost function,
+i.e a sum of terms that must be minimized.
+Rather than just trying to find a model that satisfies the given constraints,
+gophersat will then try to find a model that is guaranteed to both satisfy the constraints
+and minimize the cost function.
+
 ## Is Gophersat fast? Why use it at all?
 Yes and no. It is much faster than naïve implementations, but slower than
 top-level, highly optimised, state-of-the-art solvers.
@@ -120,6 +128,9 @@ describing and solving NP-hard problems that can easily be reduced to a SAT inst
 ## Do I have to represent my SAT problem as CNF? Am I forced to use the unfriendly DIMACS format?
 Not anymore. The `bf` (for "boolean formula") package provides facilities to
 translate any boolean formula to CNF.
+
+Helper packages for describing optimization problems (such as weighted partial MAXSAT)
+and pseudo-boolean problems will come soon. Stay tuned.
 
 ## Can I know how many solutions there are for a given formula?
 This is known as model counting, and yes, there is a function for that: solver.Solver.CountModels.

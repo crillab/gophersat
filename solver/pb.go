@@ -88,5 +88,14 @@ func Eq(lits []int, weights []int, n int) []PBConstr {
 	weights2 := make([]int, len(weights))
 	copy(lits2, lits)
 	copy(weights2, weights)
-	return []PBConstr{GtEq(lits2, weights2, n), LtEq(lits, weights, n)}
+	ge := GtEq(lits2, weights2, n)
+	le := LtEq(lits, weights, n)
+	var res []PBConstr
+	if ge.AtLeast > 0 {
+		res = append(res, ge)
+	}
+	if le.AtLeast > 0 {
+		res = append(res, le)
+	}
+	return res
 }

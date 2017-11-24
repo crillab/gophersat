@@ -243,10 +243,21 @@ func ParseCNF(f io.Reader) (*Problem, error) {
 	return &pb, nil
 }
 
-func (pb *Problem) parsePBLine(line string) error {
-	if line == "" {
-		return fmt.Errorf("empty line in file")
+// parsePBOptim parses the "min:" instruction.
+func (pb *Problem) parsePBOptim(fields []string, line string) error {
+	weights, lits, err := pb.parseTerms(fields[1:], line)
+	if err != nil {
+		return err
 	}
+	pb.minLits = make([]Lit, len(lits))
+	for i, lit := range lits {
+		pb.minLits[i] = IntToLit(int32(lit))
+	}
+	pb.minWeights = weights
+	return nil
+}
+
+func (pb *Problem) parsePBLine(line string) error {
 	if line[len(line)-1] != ';' {
 		return fmt.Errorf("line %q does not end with semicolon", line)
 	}
@@ -254,6 +265,13 @@ func (pb *Problem) parsePBLine(line string) error {
 	if len(fields) == 0 {
 		return fmt.Errorf("empty line in file")
 	}
+	if fields[0] == "min:" { // Optimization constraint
+		return pb.parsePBOptim(fields, line)
+	}
+	return pb.parsePBConstrLine(fields, line)
+}
+
+func (pb *Problem) parsePBConstrLine(fields []string, line string) error {
 	if len(fields) < 4 || len(fields)%2 != 0 {
 		return fmt.Errorf("invalid syntax %q", line)
 	}
@@ -265,22 +283,40 @@ func (pb *Problem) parsePBLine(line string) error {
 	if err != nil {
 		return fmt.Errorf("invalid value %q in %q: %v", fields[len(fields)-1], line, err)
 	}
-	weights, lits, err := pb.parseTerms(fields, line)
+	weights, lits, err := pb.parseTerms(fields[:len(fields)-2], line)
 	if err != nil {
 		return err
 	}
+	var constrs []PBConstr
 	if operator == ">=" {
-		pb.Clauses = append(pb.Clauses, GtEq(lits, weights, rhs).Clause())
+		constrs = []PBConstr{GtEq(lits, weights, rhs)}
 	} else {
-		for _, constr := range Eq(lits, weights, rhs) {
-			pb.Clauses = append(pb.Clauses, constr.Clause())
+		constrs = Eq(lits, weights, rhs)
+	}
+	for _, constr := range constrs {
+		card := constr.AtLeast
+		sumW := constr.WeightSum()
+		if sumW < card { // Clause cannot be satsfied
+			pb.Status = Unsat
+			return nil
+		}
+		if sumW == card { // All lits must be true
+			for i := range constr.Lits {
+				lit := IntToLit(int32(constr.Lits[i]))
+				pb.Units = append(pb.Units, lit)
+			}
+		} else {
+			lits := make([]Lit, len(constr.Lits))
+			for j, val := range constr.Lits {
+				lits[j] = IntToLit(int32(val))
+			}
+			pb.Clauses = append(pb.Clauses, NewPBClause(lits, constr.Weights, card))
 		}
 	}
 	return nil
 }
 
-func (pb *Problem) parseTerms(fields []string, line string) (weights []int, lits []int, err error) {
-	terms := fields[:len(fields)-2]
+func (pb *Problem) parseTerms(terms []string, line string) (weights []int, lits []int, err error) {
 	weights = make([]int, len(terms)/2)
 	lits = make([]int, len(terms)/2)
 	for i := range weights {
@@ -311,9 +347,9 @@ func (pb *Problem) parseTerms(fields []string, line string) (weights []int, lits
 	return weights, lits, nil
 }
 
-// ParsePBS parses a file corresponding to the PBS syntax.
+// ParseOPB parses a file corresponding to the OPB syntax.
 // See http://www.cril.univ-artois.fr/PB16/format.pdf for more details.
-func ParsePBS(f io.Reader) (*Problem, error) {
+func ParseOPB(f io.Reader) (*Problem, error) {
 	scanner := bufio.NewScanner(f)
 	var pb Problem
 	for scanner.Scan() {
@@ -326,7 +362,7 @@ func ParsePBS(f io.Reader) (*Problem, error) {
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("could not parse PBS: %v", err)
+		return nil, fmt.Errorf("could not parse OPB: %v", err)
 	}
 	pb.Model = make([]decLevel, pb.NbVars)
 	pb.simplifyPB()

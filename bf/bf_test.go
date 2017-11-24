@@ -8,30 +8,23 @@ import (
 
 func TestCNF(t *testing.T) {
 	f := And(Or(Var("a"), Var("b")), Var("i"), Or(Var("g"), Var("h"), And(Var("c"), Or(Var("d"), Var("e")), Var("f"))))
-	sat, _, err := Solve(f)
-	if err != nil {
-		t.Errorf("could not solve problem %s: %v", f, err)
-	}
-	if !sat {
+	model := Solve(f)
+	if model == nil {
 		t.Errorf("problem was declared UNSAT")
 	}
 }
 
 func TestUnique(t *testing.T) {
 	f := And(Var("a"), Unique("a", "b", "c", "d", "e"))
-	sat, model, err := Solve(f)
-	if err != nil {
-		t.Error(err)
-	} else if !sat {
+	model := Solve(f)
+	if model == nil {
 		t.Errorf("problem is declared unsat")
 	} else if !model["a"] || model["b"] || model["c"] || model["d"] || model["e"] {
 		t.Errorf("invalid model %v", model)
 	}
 	f = And(Var("a"), Or(Var("b"), Var("c")), Unique("a", "b", "c", "d", "e"))
-	sat, model, err = Solve(f)
-	if err != nil {
-		t.Error(err)
-	} else if sat {
+	model = Solve(f)
+	if model != nil {
 		t.Errorf("problem is declared sat, model: %v", model)
 	}
 }
@@ -48,10 +41,8 @@ func ExampleSolve() {
 	f := Not(Implies(
 		And(Var("a"), Var("b")), And(Or(Var("c"), Not(Var("d"))),
 			Not(And(Var("c"), Eq(Var("e"), Not(Var("c"))))), Not(Xor(Var("a"), Var("b"))))))
-	sat, _, err := Solve(f)
-	if err != nil {
-		fmt.Printf("Error while solving problem: %v", err)
-	} else if sat {
+	model := Solve(f)
+	if model != nil {
 		fmt.Printf("Problem is satisfiable")
 	} else {
 		fmt.Printf("Problem is unsatisfiable")
@@ -61,10 +52,8 @@ func ExampleSolve() {
 
 func ExampleUnique() {
 	f := And(Var("a"), Unique("a", "b", "c", "d", "e"))
-	sat, model, err := Solve(f)
-	if err != nil {
-		fmt.Printf("Error while solving problem: %v", err)
-	} else if sat {
+	model := Solve(f)
+	if model != nil {
 		fmt.Printf("Problem is satisfiable: a=%t, b=%t, c=%t, d=%t", model["a"], model["b"], model["c"], model["d"])
 	} else {
 		fmt.Printf("Problem is unsatisfiable")
@@ -173,11 +162,8 @@ func ExampleSolve_sudoku() {
 		Var("line-9-col-8:7"),
 		Var("line-9-col-9:9"),
 	)
-	sat, model, err := Solve(f)
-	if err != nil {
-		fmt.Printf("Error while solving grid: %v\n", err)
-		return
-	} else if !sat {
+	model := Solve(f)
+	if model == nil {
 		fmt.Println("Error: solving grid was found unsat")
 		return
 	}
@@ -211,7 +197,7 @@ func benchmarkUnique(n int) {
 		vars[i] = fmt.Sprintf("var-%d", i)
 	}
 	f := Unique(vars...)
-	_, _, _ = Solve(f)
+	_ = Solve(f)
 }
 
 func BenchmarkUnique100(b *testing.B) {

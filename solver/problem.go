@@ -4,11 +4,20 @@ import "fmt"
 
 // A Problem is a list of clauses & a nb of vars.
 type Problem struct {
-	NbVars  int        // Total nb of vars
-	Clauses []*Clause  // List of non-empty, non-unit clauses
-	Status  Status     // Status of the problem. Can be trivially UNSAT (if empty clause was met or inferred by UP) or Indet.
-	Units   []Lit      // List of unit literal found in the problem.
-	Model   []decLevel // For each var, its inferred binding. 0 means unbound, 1 means bound to true, -1 means bound to false.
+	NbVars     int        // Total nb of vars
+	Clauses    []*Clause  // List of non-empty, non-unit clauses
+	Status     Status     // Status of the problem. Can be trivially UNSAT (if empty clause was met or inferred by UP) or Indet.
+	Units      []Lit      // List of unit literal found in the problem.
+	Model      []decLevel // For each var, its inferred binding. 0 means unbound, 1 means bound to true, -1 means bound to false.
+	minLits    []Lit      // For an optimisation problem, the list of lits whose sum must be minimized
+	minWeights []int      // For an optimisation problem, the weight of each lit.
+}
+
+// Optim returns true iff pb is an optimisation problem, ie
+// a problem for which we not only want to find a model, but also
+// the best possible model according to an optimization constraint.
+func (pb *Problem) Optim() bool {
+	return pb.minLits != nil
 }
 
 // CNF returns a DIMACS CNF representation of the problem.

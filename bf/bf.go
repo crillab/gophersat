@@ -19,9 +19,8 @@ type Formula interface {
 
 // Solve solves the given formula.
 // f is first converted as a CNF formula. It is then given to gophersat.
-// The function returns a boolean indicating if the formula was satisfiable.
-// If it was, a model is then provided, associating each variable name with its binding.
-func Solve(f Formula) (sat bool, model map[string]bool, err error) {
+// The function returns a model associating each variable name with its binding, or nil if the formula was not satisfiable.
+func Solve(f Formula) map[string]bool {
 	return asCnf(f).solve()
 }
 
@@ -355,23 +354,20 @@ type cnf struct {
 
 // solve solves the given formula.
 // cnf is given to gophersat.
-// The function returns a boolean indicating if the formula was satisfiable.
-// If it was, a model is then provided, associating each variable name with its binding.
-func (cnf *cnf) solve() (sat bool, vars map[string]bool, err error) {
+// If it is satisfiable, the function returns a model, associating each variable name with its binding.
+// Else, the function returns nil.
+func (cnf *cnf) solve() map[string]bool {
 	pb := solver.ParseSlice(cnf.clauses)
 	s := solver.New(pb)
 	if s.Solve() != solver.Sat {
-		return false, nil, nil
+		return nil
 	}
-	m, err := s.Model()
-	if err != nil {
-		return false, nil, fmt.Errorf("could not retrieve model: %v", err)
-	}
-	vars = make(map[string]bool)
+	m := s.Model()
+	vars := make(map[string]bool)
 	for v, idx := range cnf.vars.pb {
 		vars[v.name] = m[idx-1]
 	}
-	return true, vars, nil
+	return vars
 }
 
 // asCnf returns a CNF representation of the given formula.

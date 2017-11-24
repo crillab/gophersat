@@ -44,10 +44,8 @@ func ExampleParse() {
 	if err != nil {
 		fmt.Printf("Could not parse expression %q: %v", expr, err)
 	} else {
-		sat, model, err := Solve(f)
-		if err != nil {
-			fmt.Printf("Could not solve %q: %v", expr, err)
-		} else if !sat {
+		model := Solve(f)
+		if model == nil {
 			fmt.Printf("Problem is unsatisfiable")
 		} else {
 			fmt.Printf("Problem is satisfiable, model: a=%t, b=%t, c=%t, d=%t", model["a"], model["b"], model["c"], model["d"])
@@ -63,10 +61,8 @@ func ExampleParse_unsatisfiable() {
 	if err != nil {
 		fmt.Printf("Could not parse expression %q: %v", expr, err)
 	} else {
-		sat, model, err := Solve(f)
-		if err != nil {
-			fmt.Printf("Could not solve %q: %v", expr, err)
-		} else if !sat {
+		model := Solve(f)
+		if model == nil {
 			fmt.Printf("Problem is unsatisfiable")
 		} else {
 			fmt.Printf("Problem is satisfiable, model: a=%t, b=%t, c=%t", model["a"], model["b"], model["c"])
@@ -82,10 +78,8 @@ func ExampleParse_unique() {
 	if err != nil {
 		fmt.Printf("Could not parse expression %q: %v", expr, err)
 	} else {
-		sat, model, err := Solve(f)
-		if err != nil {
-			fmt.Printf("Could not solve %q: %v", expr, err)
-		} else if !sat {
+		model := Solve(f)
+		if model == nil {
 			fmt.Printf("Problem is unsatisfiable")
 		} else {
 			fmt.Printf("Problem is satisfiable, model: a=%t, b=%t, c=%t", model["a"], model["b"], model["c"])

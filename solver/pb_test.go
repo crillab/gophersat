@@ -19,10 +19,8 @@ func TestPropClause(t *testing.T) {
 	if status != Sat {
 		t.Errorf("problem should be sat")
 	} else {
-		model, err := s.Model()
-		if err != nil {
-			t.Errorf("error while getting model: %v", err)
-		} else if model[IntToVar(1)] || !model[IntToVar(2)] || model[IntToVar(3)] {
+		model := s.Model()
+		if model[IntToVar(1)] || !model[IntToVar(2)] || model[IntToVar(3)] {
 			t.Errorf("invalid model: got %v", model)
 		}
 	}
@@ -40,10 +38,8 @@ func TestAtMostAtLeast(t *testing.T) {
 	if status != Sat {
 		t.Errorf("problem should be sat")
 	} else {
-		model, err := s.Model()
-		if err != nil {
-			t.Errorf("error while getting model: %v", err)
-		} else if model[IntToVar(1)] || !model[IntToVar(2)] || model[IntToVar(3)] {
+		model := s.Model()
+		if model[IntToVar(1)] || !model[IntToVar(2)] || model[IntToVar(3)] {
 			t.Errorf("invalid model: got %v", model)
 		}
 	}
@@ -144,36 +140,6 @@ func TestPB(t *testing.T) {
 	}
 }
 
-func runPBTest(test test, t *testing.T) {
-	f, err := os.Open(test.path)
-	if err != nil {
-		t.Error(err.Error())
-	}
-	defer func() { _ = f.Close() }()
-	pb, err := ParsePBS(f)
-	if err != nil {
-		t.Error(err.Error())
-	} else {
-		s := New(pb)
-		if status := s.Solve(); status != test.expected {
-			t.Errorf("Invalid result for %q: expected %v, got %v", test.path, test.expected, status)
-		}
-	}
-}
-
-var pbTests = []test{
-	{"testcnf/simple.opb", Sat},
-	{"testcnf/ex1.pbs", Unsat},
-	{"testcnf/3col-almost3reg-l010-r009-n1.opb", Unsat},
-	{"testcnf/fixed-bandwidth-10.cnf.gz-extracted.pb", Unsat},
-}
-
-func TestPBSolver(t *testing.T) {
-	for _, test := range pbTests {
-		runPBTest(test, t)
-	}
-}
-
 func runPBBench(path string, b *testing.B) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -181,7 +147,7 @@ func runPBBench(path string, b *testing.B) {
 	}
 	defer func() { _ = f.Close() }()
 	for i := 0; i < b.N; i++ {
-		pb, err := ParsePBS(f)
+		pb, err := ParseOPB(f)
 		if err != nil {
 			b.Fatal(err.Error())
 		}

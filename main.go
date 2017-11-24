@@ -51,9 +51,9 @@ func parseAndSolve(r io.Reader) error {
 		return solveCNF(pb)
 	}
 	r2 = strings.NewReader(string(content))
-	pb, errPBS := solver.ParsePBS(r2)
-	if errPBS != nil {
-		return fmt.Errorf("could not parse content as DIMACS (%v), as boolean formula (%v), nor as a pseudo-boolean problem (%v)", errCNF, errBF, errPBS)
+	pb, errOPB := solver.ParseOPB(r2)
+	if errOPB != nil {
+		return fmt.Errorf("could not parse content as DIMACS (%v), as boolean formula (%v), nor as a pseudo-boolean problem (%v)", errCNF, errBF, errOPB)
 	}
 	return solveCNF(pb)
 }
@@ -83,11 +83,7 @@ func countModels(pb *solver.Problem) error {
 }
 
 func solveBF(f bf.Formula) error {
-	sat, model, err := bf.Solve(f)
-	if err != nil {
-		return fmt.Errorf("could not solve formula %q: %v", f, err)
-	}
-	if !sat {
+	if model := bf.Solve(f); model == nil {
 		fmt.Println("UNSATISFIABLE")
 	} else {
 		fmt.Println("SATISFIABLE")
