@@ -1,7 +1,5 @@
 package solver
 
-import "fmt"
-
 // computeLbd computes and sets c's LBD (Literal Block Distance).
 func (c *Clause) computeLbd(model Model) {
 	c.setLbd(1)
