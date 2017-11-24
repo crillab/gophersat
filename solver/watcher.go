@@ -109,9 +109,10 @@ func (s *Solver) watchClause(c *Clause) {
 	}
 }
 
-// unwatch the given clause.
+// unwatch the given learned clause.
 // NOTE: since it is only called when c.lbd() > 2, we know for sure
 // that c is not a binary clause.
+// We also know for sure this is a propositional clause, since only those are learned.
 func (s *Solver) unwatchClause(c *Clause) {
 	for i := 0; i < 2; i++ { // 2, not Cardinality + 1: learned clauses always have Cardinality == 1.
 		neg := c.Get(i).Negation()
