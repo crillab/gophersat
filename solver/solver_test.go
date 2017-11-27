@@ -46,7 +46,6 @@ var tests = []test{
 	{"testcnf/175.cnf", Unsat},
 	{"testcnf/200.cnf", Unsat},
 	{"testcnf/225.cnf", Sat},
-	{"testcnf/250.cnf", Unsat},
 	{"testcnf/hoons-vbmc-lucky7.cnf", Unsat},
 	{"testcnf/3col-almost3reg-l010-r009-n1.opb", Unsat},
 	{"testcnf/simple.opb", Sat},
@@ -199,38 +198,13 @@ func ExampleParseCardConstrs() {
 	// Problem is not satisfiable
 }
 
-func BenchmarkSolver125(b *testing.B) {
-	runBench("testcnf/125.cnf", b)
-}
-
-func BenchmarkSolver150(b *testing.B) {
-	runBench("testcnf/150.cnf", b)
-}
-
-func BenchmarkSolver175(b *testing.B) {
-	runBench("testcnf/175.cnf", b)
-}
-
-func BenchmarkSolver200(b *testing.B) {
-	runBench("testcnf/200.cnf", b)
-}
-
-func BenchmarkSolver225(b *testing.B) {
-	runBench("testcnf/225.cnf", b)
-}
-
-func BenchmarkSolver250(b *testing.B) {
-	runBench("testcnf/250.cnf", b)
-}
-
-func BenchmarkSolver275(b *testing.B) {
-	runBench("testcnf/275.cnf", b)
-}
-
-func BenchmarkSolver300(b *testing.B) {
-	runBench("testcnf/300.cnf", b)
-}
-
-func BenchmarkSolverIndus(b *testing.B) {
+func BenchmarkSolverHoons(b *testing.B) {
 	runBench("testcnf/hoons-vbmc-lucky7.cnf", b)
+}
+
+func BenchmarkSolverGss(b *testing.B) {
+	runBench("testcnf/gss-13-s100.cnf", b)
+}
+func BenchmarkXinetd(b *testing.B) {
+	runBench("testcnf/xinetd_vc56703.cnf", b)
 }
