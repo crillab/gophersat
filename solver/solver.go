@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	initNbMaxClauses  = 2000  // Maximum # of learned clauses, at first.
+	initNbMaxClauses  = 4000  // Maximum # of learned clauses, at first.
 	incrNbMaxClauses  = 300   // By how much # of learned clauses is incremented at each conflict.
 	incrPostponeNbMax = 1000  // By how much # of learned is increased when lots of good clauses are currently learned.
 	clauseDecay       = 0.999 // By how much clauses bumping decays over time.
@@ -226,6 +226,16 @@ func backtrackData(c *Clause, model []decLevel) (btLevel decLevel, lit Lit) {
 	return btLevel, c.Get(0)
 }
 
+func (s *Solver) rebuildOrderHeap() {
+	ints := make([]int, s.nbVars)
+	for v := 0; v < s.nbVars; v++ {
+		if s.model[v] == 0 {
+			ints = append(ints, int(v))
+		}
+	}
+	s.varQueue.build(ints)
+}
+
 // Searches until a restart is needed.
 func (s *Solver) search() Status {
 	lvl := decLevel(2) // Level starts at 2, for implementation reasons : 1 is for top-level bindings; 0 means "no level assigned yet"
@@ -246,24 +256,25 @@ func (s *Solver) search() Status {
 			lit = s.chooseLit()
 		} else { // Deal with conflict
 			s.Stats.NbConflicts++
+			s.lbdStats.addConflict(len(s.trail))
 			learnt, unit := s.learnClause(conflict, lvl)
 			if learnt == nil { // Unit clause was learned: this lit is known for sure
-				s.lbdStats.add(1)
+				s.lbdStats.addLbd(1)
 				s.Stats.NbUnitLearned++
 				s.cleanupBindings(1)
 				s.model[unit.Var()] = lvlToSignedLvl(unit, 1)
-				s.trail = append(s.trail, unit)
 				if conflict = s.unifyLiteral(unit, 1); conflict != nil { // top-level conflict
 					s.status = Unsat
 					return Unsat
 				}
+				s.rebuildOrderHeap()
 				lit = s.chooseLit()
 			} else {
 				if learnt.Len() == 2 {
 					s.Stats.NbBinaryLearned++
 				}
 				s.Stats.NbLearned++
-				s.lbdStats.add(learnt.lbd())
+				s.lbdStats.addLbd(learnt.lbd())
 				s.addClause(learnt)
 				lvl, lit = backtrackData(learnt, s.model)
 				s.cleanupBindings(lvl)
@@ -283,13 +294,22 @@ func (s *Solver) Solve() Status {
 	}
 	s.learnDecisions()
 	s.status = Indet
+	s.lbdStats.clear()
+	end := make(chan struct{})
+	defer close(end)
 	if s.Verbose {
 		go func() { // Function displaying stats during resolution
 			fmt.Printf("c ======================================================================================\n")
 			fmt.Printf("c | Restarts |  Conflicts  |  Learned  |  Deleted  | Del%% | Reduce |   Units learned   |\n")
 			fmt.Printf("c ======================================================================================\n")
+			ticker := time.NewTicker(3 * time.Second)
+			defer ticker.Stop()
 			for s.status == Indet { // There might be concurrent access in a few places but this is okay since we are very conservative and don't modify state.
-				time.Sleep(3 * time.Second)
+				select {
+				case <-ticker.C:
+				case <-end:
+					return
+				}
 				if s.status == Indet {
 					iter := s.Stats.NbRestarts + 1
 					nbConfl := s.Stats.NbConflicts
@@ -310,6 +330,7 @@ func (s *Solver) Solve() Status {
 		}
 	}
 	if s.Verbose {
+		end <- struct{}{}
 		fmt.Printf("c ======================================================================================\n")
 	}
 	return s.status
@@ -362,32 +383,50 @@ func (s *Solver) learnDecisions() {
 
 func (s *Solver) propagateUnits(units []Lit) {
 	for _, unit := range units {
-		s.lbdStats.add(1)
+		s.lbdStats.addLbd(1)
 		s.Stats.NbUnitLearned++
 		s.cleanupBindings(1)
 		s.model[unit.Var()] = lvlToSignedLvl(unit, 1)
-		s.trail = append(s.trail, unit)
 		if s.unifyLiteral(unit, 1) != nil {
 			s.status = Unsat
 			return
 		}
+		s.rebuildOrderHeap()
 	}
 }
 
 // PBString returns a representation of the solver's state as a pseudo-boolean problem.
 func (s *Solver) PBString() string {
+	minLine := ""
+	if s.minLits != nil {
+		terms := make([]string, len(s.minLits))
+		for i, lit := range s.minLits {
+			weight := 1
+			if s.minWeights != nil {
+				weight = s.minWeights[i]
+			}
+			val := lit.Int()
+			sign := ""
+			if val < 0 {
+				val = -val
+				sign = "~"
+			}
+			terms[i] = fmt.Sprintf("%d %sx%d", weight, sign, val)
+		}
+		minLine = fmt.Sprintf("min: %s ;\n", strings.Join(terms, " +"))
+	}
 	clauses := make([]string, len(s.wl.clauses))
 	for i, c := range s.wl.clauses {
 		clauses[i] = c.PBString()
 	}
 	for i := 0; i < len(s.model); i++ {
 		if s.model[i] == 1 {
-			clauses = append(clauses, fmt.Sprintf("x%d = 1", i+1))
+			clauses = append(clauses, fmt.Sprintf("x%d = 1 ;", i+1))
 		} else if s.model[i] == -1 {
-			clauses = append(clauses, fmt.Sprintf("x%d = 0", i+1))
+			clauses = append(clauses, fmt.Sprintf("x%d = 0 ;", i+1))
 		}
 	}
-	return strings.Join(clauses, "\n")
+	return minLine + strings.Join(clauses, "\n")
 }
 
 // AppendClause appends a new clause to the set of clauses.
@@ -453,6 +492,14 @@ func (s *Solver) Minimize() (cost int, model []bool) {
 	if s.minLits == nil {
 		return 0, s.Model()
 	}
+	maxCost := 0
+	if s.minWeights == nil {
+		maxCost = len(s.minLits)
+	} else {
+		for _, w := range s.minWeights {
+			maxCost += w
+		}
+	}
 	for status == Sat {
 		model = s.Model()
 		cost = 0
@@ -465,7 +512,7 @@ func (s *Solver) Minimize() (cost int, model []bool) {
 				}
 			}
 		}
-		if cost == 0 { // All clauses were satisfied: perfect!
+		if cost == 0 {
 			return 0, model
 		}
 		if s.Verbose {
@@ -474,9 +521,11 @@ func (s *Solver) Minimize() (cost int, model []bool) {
 		// Add a constraint incrementing current best cost
 		lits2 := make([]Lit, len(s.minLits))
 		weights2 := make([]int, len(s.minWeights))
-		copy(lits2, s.minLits)
+		for i, lit := range s.minLits {
+			lits2[i] = lit.Negation()
+		}
 		copy(weights2, s.minWeights)
-		s.AppendClause(NewPBClause(lits2, weights2, cost+1))
+		s.AppendClause(NewPBClause(lits2, weights2, maxCost-cost+1))
 		status = s.Solve()
 	}
 	return cost, model

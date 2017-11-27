@@ -213,7 +213,7 @@ func (c *Clause) CNF() string {
 
 // PBString returns a string representation of c as a pseudo-boolean expression.
 func (c *Clause) PBString() string {
-	terms := make([]string, c.Len())
+	/*terms := make([]string, c.Len())
 	for i, lit := range c.lits {
 		weight := ""
 		if c.weights != nil && c.weights[i] != 1 {
@@ -227,5 +227,20 @@ func (c *Clause) PBString() string {
 		}
 		terms[i] = fmt.Sprintf("%s%sx%d", weight, sign, val)
 	}
-	return fmt.Sprintf("%s ≥ %d", strings.Join(terms, " + "), c.Cardinality())
+	return fmt.Sprintf("%s ≥ %d", strings.Join(terms, " + "), c.Cardinality())*/
+	terms := make([]string, c.Len())
+	for i, lit := range c.lits {
+		weight := 1
+		if c.weights != nil {
+			weight = c.weights[i]
+		}
+		val := lit.Int()
+		sign := ""
+		if val < 0 {
+			val = -val
+			sign = "~"
+		}
+		terms[i] = fmt.Sprintf("%d %sx%d", weight, sign, val)
+	}
+	return fmt.Sprintf("%s >= %d ;", strings.Join(terms, " +"), c.Cardinality())
 }
