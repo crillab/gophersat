@@ -104,6 +104,8 @@ i.e a sum of terms that must be minimized.
 Rather than just trying to find a model that satisfies the given constraints,
 gophersat will then try to find a model that is guaranteed to both satisfy the constraints
 and minimize the cost function.
+Please note that optimization is at an early stage of development.
+Performance needs to be improved.
 
 ## Is Gophersat fast? Why use it at all?
 Yes and no. It is much faster than naïve implementations, but slower than
