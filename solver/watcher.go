@@ -172,18 +172,8 @@ func lvlToSignedLvl(l Lit, lvl decLevel) decLevel {
 // The element *must* be present into lst.
 func removeFrom(lst []*Clause, c *Clause) []*Clause {
 	i := 0
-	if i == len(lst) {
-		panic(fmt.Errorf("could not find clause %q in %v", c.PBString(), lst))
-	}
 	for lst[i] != c {
 		i++
-		if i == len(lst) {
-			cls := make([]string, len(lst))
-			for i, c2 := range lst {
-				cls[i] = c2.PBString()
-			}
-			panic(fmt.Errorf("could not find clause %q in %v", c.PBString(), cls))
-		}
 	}
 	last := len(lst) - 1
 	lst[i] = lst[last]
