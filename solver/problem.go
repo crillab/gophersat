@@ -38,6 +38,17 @@ func (pb *Problem) PBString() string {
 	return res
 }
 
+// SetCostFunc sets the function to minimize when optimizing the problem.
+// If all weights are 1, weights can be nil.
+// In all other cases, len(lits) must be the same as len(weights).
+func (pb *Problem) SetCostFunc(lits []Lit, weights []int) {
+	if weights != nil && len(lits) != len(weights) {
+		panic("length of lits and of weights don't match")
+	}
+	pb.minLits = lits
+	pb.minWeights = weights
+}
+
 func (pb *Problem) updateStatus(nbClauses int) {
 	pb.Clauses = pb.Clauses[:nbClauses]
 	if pb.Status == Indet && nbClauses == 0 {
@@ -48,48 +59,52 @@ func (pb *Problem) updateStatus(nbClauses int) {
 // simplify simplifies the problem, i.e runs unit propagation if possible.
 func (pb *Problem) simplify() {
 	nbClauses := len(pb.Clauses)
-	i := 0
-	for i < nbClauses {
-		c := pb.Clauses[i]
-		nbLits := c.Len()
-		card := c.Cardinality()
-		clauseSat := false
-		nbSat := 0
-		j := 0
-		for j < nbLits {
-			lit := c.Get(j)
-			if pb.Model[lit.Var()] == 0 {
-				j++
-			} else if (pb.Model[lit.Var()] == 1) == lit.IsPositive() {
-				nbSat++
-				if nbSat == card {
-					clauseSat = true
-					break
+	restart := true
+	for restart {
+		restart = false
+		i := 0
+		for i < nbClauses {
+			c := pb.Clauses[i]
+			nbLits := c.Len()
+			card := c.Cardinality()
+			clauseSat := false
+			nbSat := 0
+			j := 0
+			for j < nbLits {
+				lit := c.Get(j)
+				if pb.Model[lit.Var()] == 0 {
+					j++
+				} else if (pb.Model[lit.Var()] == 1) == lit.IsPositive() {
+					nbSat++
+					if nbSat == card {
+						clauseSat = true
+						break
+					}
+				} else {
+					nbLits--
+					c.Set(j, c.Get(nbLits))
 				}
-			} else {
-				nbLits--
-				c.Set(j, c.Get(nbLits))
 			}
-		}
-		if clauseSat {
-			nbClauses--
-			pb.Clauses[i] = pb.Clauses[nbClauses]
-		} else if nbLits < card {
-			pb.Status = Unsat
-			return
-		} else if nbLits == card { // UP
-			pb.addUnits(c, nbLits)
-			if pb.Status == Unsat {
+			if clauseSat {
+				nbClauses--
+				pb.Clauses[i] = pb.Clauses[nbClauses]
+			} else if nbLits < card {
+				pb.Status = Unsat
 				return
+			} else if nbLits == card { // UP
+				pb.addUnits(c, nbLits)
+				if pb.Status == Unsat {
+					return
+				}
+				nbClauses--
+				pb.Clauses[i] = pb.Clauses[nbClauses]
+				restart = true // Must restart, since this lit might have made one more clause Unit or SAT.
+			} else { // nb lits unbound > cardinality
+				if c.Len() != nbLits {
+					c.Shrink(nbLits)
+				}
+				i++
 			}
-			nbClauses--
-			pb.Clauses[i] = pb.Clauses[nbClauses]
-			i = 0 // Must restart, since this lit might have made one more clause Unit or SAT.
-		} else { // nb lits unbound > cardinality
-			if c.Len() != nbLits {
-				c.Shrink(nbLits)
-			}
-			i++
 		}
 	}
 	pb.updateStatus(nbClauses)
