@@ -2,7 +2,6 @@ package solver
 
 import (
 	"fmt"
-	"log"
 	"sort"
 	"strings"
 )
@@ -173,11 +172,11 @@ func (c *Clause) swap(i, j int) {
 // updateCardinality adds "add" to c's cardinality.
 // Must not be called on learned clauses!
 func (c *Clause) updateCardinality(add int) {
-	log.Printf("card is %d, add is %d", c.lbdValue+1, add)
-	if add < 0 && uint32(add) > c.lbdValue {
+	if add < 0 && uint32(-add) > c.lbdValue {
 		c.lbdValue = 0
+	} else {
+		c.lbdValue += uint32(add)
 	}
-	c.lbdValue += uint32(add)
 }
 
 // removeLit remove the idx'th lit from c.
