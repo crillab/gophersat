@@ -12,27 +12,25 @@ type watcher struct {
 
 // A watcherList is a structure used to store clauses and propagate unit literals efficiently.
 type watcherList struct {
-	nbOriginal int         // Original # of clauses
-	nbLearned  int         // # of learned clauses
-	nbMax      int         // Max # of learned clauses at current moment
-	idxReduce  int         // # of calls to reduce + 1
-	wlistBin   [][]watcher // For each literal, a list of binary clauses where its negation appears
-	wlist      [][]*Clause // For each literal, a list of non-binary clauses where its negation appears at a position <= (cardinality + 1)
-	clauses    []*Clause   // All the clauses
+	nbMax     int         // Max # of learned clauses at current moment
+	idxReduce int         // # of calls to reduce + 1
+	wlistBin  [][]watcher // For each literal, a list of binary clauses where its negation appears
+	wlist     [][]*Clause // For each literal, a list of non-binary clauses where its negation appears at a position <= (cardinality + 1)
+	pbClauses []*Clause   // All the problem clauses.
+	learned   []*Clause
 }
 
 // initWatcherList makes a new watcherList for the solver.
 func (s *Solver) initWatcherList(clauses []*Clause) {
 	nbMax := initNbMaxClauses
-	newClauses := make([]*Clause, len(clauses), len(clauses)*2) // Make room for future learned clauses
+	newClauses := make([]*Clause, len(clauses))
 	copy(newClauses, clauses)
 	s.wl = watcherList{
-		nbOriginal: len(clauses),
-		nbMax:      nbMax,
-		idxReduce:  1,
-		wlistBin:   make([][]watcher, s.nbVars*2),
-		wlist:      make([][]*Clause, s.nbVars*2),
-		clauses:    newClauses,
+		nbMax:     nbMax,
+		idxReduce: 1,
+		wlistBin:  make([][]watcher, s.nbVars*2),
+		wlist:     make([][]*Clause, s.nbVars*2),
+		pbClauses: newClauses,
 	}
 	for _, c := range clauses {
 		s.watchClause(c)
@@ -40,11 +38,10 @@ func (s *Solver) initWatcherList(clauses []*Clause) {
 }
 
 // appendClause appends the clause without checking whether the clause is already satisfiable, unit, or unsatisfiable.
-// To perform those checks, call s.AppendClause
+// To perform those checks, call s.AppendClause.
+// clause is supposed to be a problem clause, not a learned one.
 func (s *Solver) appendClause(clause *Clause) {
-	s.wl.clauses = append(s.wl.clauses, clause)
-	s.wl.clauses[s.wl.nbOriginal], s.wl.clauses[len(s.wl.clauses)-1] = s.wl.clauses[len(s.wl.clauses)-1], s.wl.clauses[s.wl.nbOriginal]
-	s.wl.nbOriginal++
+	s.wl.pbClauses = append(s.wl.pbClauses, clause)
 	s.watchClause(clause)
 }
 
@@ -61,21 +58,14 @@ func (s *Solver) postponeNbMax() {
 }
 
 // Utilities for sorting according to clauses' LBD and activities.
-func (wl *watcherList) Len() int { return wl.nbLearned }
+func (wl *watcherList) Len() int      { return len(wl.learned) }
+func (wl *watcherList) Swap(i, j int) { wl.learned[i], wl.learned[j] = wl.learned[j], wl.learned[i] }
 
 func (wl *watcherList) Less(i, j int) bool {
-	idxI := i + wl.nbOriginal
-	idxJ := j + wl.nbOriginal
-	lbdI := wl.clauses[idxI].lbd()
-	lbdJ := wl.clauses[idxJ].lbd()
+	lbdI := wl.learned[i].lbd()
+	lbdJ := wl.learned[j].lbd()
 	// Sort by lbd, break ties by activity
-	return lbdI > lbdJ || (lbdI == lbdJ && wl.clauses[idxI].activity < wl.clauses[idxJ].activity)
-}
-
-func (wl *watcherList) Swap(i, j int) {
-	idxI := i + wl.nbOriginal
-	idxJ := j + wl.nbOriginal
-	wl.clauses[idxI], wl.clauses[idxJ] = wl.clauses[idxJ], wl.clauses[idxI]
+	return lbdI > lbdJ || (lbdI == lbdJ && wl.learned[i].activity < wl.learned[j].activity)
 }
 
 // Watches the provided clause.
@@ -128,34 +118,52 @@ func (s *Solver) unwatchClause(c *Clause) {
 	}
 }
 
+func (s *Solver) tryUnwatchClause(c *Clause) {
+	for i := 0; i < 2; i++ {
+		lit := c.Get(i)
+		if s.model[lit.Var()] != 0 {
+			continue
+		}
+		neg := lit.Negation()
+		j := 0
+		length := len(s.wl.wlist[neg])
+		// We're looking for the index of the clause.
+		// This will panic if c is not in wlist[neg], but this shouldn't happen.
+		for s.wl.wlist[neg][j] != c {
+			j++
+		}
+		s.wl.wlist[neg][j] = s.wl.wlist[neg][length-1]
+		s.wl.wlist[neg] = s.wl.wlist[neg][:length-1]
+	}
+}
+
 // reduceLearned removes a few learned clauses that are deemed useless.
 func (s *Solver) reduceLearned() {
 	sort.Sort(&s.wl)
-	length := s.wl.nbLearned / 2
-	if s.wl.clauses[s.wl.nbOriginal+length].lbd() <= 3 { // Lots of good clauses, postpone reduction
+	nbLearned := len(s.wl.learned)
+	length := nbLearned / 2
+	if s.wl.learned[length].lbd() <= 3 { // Lots of good clauses, postpone reduction
 		s.postponeNbMax()
 	}
 	nbRemoved := 0
 	for i := 0; i < length; i++ {
-		idx := i + s.wl.nbOriginal
-		c := s.wl.clauses[idx]
+		c := s.wl.learned[i]
 		if c.lbd() <= 2 || c.isLocked() {
 			continue
 		}
 		nbRemoved++
 		s.Stats.NbDeleted++
-		s.wl.clauses[idx] = s.wl.clauses[len(s.wl.clauses)-nbRemoved]
+		s.wl.learned[i] = s.wl.learned[nbLearned-nbRemoved]
 		s.unwatchClause(c)
 	}
-	s.wl.clauses = s.wl.clauses[:len(s.wl.clauses)-nbRemoved]
-	s.wl.nbLearned -= nbRemoved
+	nbLearned -= nbRemoved
+	s.wl.learned = s.wl.learned[:nbLearned]
 }
 
 // Adds the given learned clause and updates watchers.
 // If too many clauses have been learned yet, one will be removed.
-func (s *Solver) addClause(c *Clause) {
-	s.wl.nbLearned++
-	s.wl.clauses = append(s.wl.clauses, c)
+func (s *Solver) addLearned(c *Clause) {
+	s.wl.learned = append(s.wl.learned, c)
 	s.watchClause(c)
 	s.clauseBumpActivity(c)
 }

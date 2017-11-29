@@ -7,11 +7,14 @@ import (
 )
 
 const (
-	initNbMaxClauses  = 4000  // Maximum # of learned clauses, at first.
+	initNbMaxClauses  = 2000  // Maximum # of learned clauses, at first.
 	incrNbMaxClauses  = 300   // By how much # of learned clauses is incremented at each conflict.
 	incrPostponeNbMax = 1000  // By how much # of learned is increased when lots of good clauses are currently learned.
 	clauseDecay       = 0.999 // By how much clauses bumping decays over time.
-	varDecay          = 0.95  // On each var decay, how much the varInc should be decayed
+)
+
+var (
+	varDecay = 0.8 // On each var decay, how much the varInc should be decayed
 )
 
 // Stats are statistics about the resolution of the problem.
@@ -91,6 +94,7 @@ func New(problem *Problem) *Solver {
 		minLits:    problem.minLits,
 		minWeights: problem.minWeights,
 	}
+	s.resetOptimPolarity()
 	s.initWatcherList(problem.Clauses)
 	s.varQueue = newQueue(s.activity)
 	for _, lit := range problem.Units {
@@ -102,6 +106,15 @@ func New(problem *Problem) *Solver {
 		s.trail = append(s.trail, lit)
 	}
 	return s
+}
+
+// resets polarity of optimization lits so that they are negated by default.
+func (s *Solver) resetOptimPolarity() {
+	if s.minLits != nil {
+		for _, lit := range s.minLits {
+			s.polarity[lit.Var()] = !lit.IsPositive() // Try to make lits from the optimization clause false
+		}
+	}
 }
 
 // OutputModel outputs the model for the problem on stdout.
@@ -164,8 +177,8 @@ func (s *Solver) clauseBumpActivity(c *Clause) {
 	if c.Learned() {
 		c.activity += s.clauseInc
 		if c.activity > 1e30 { // Rescale to avoid overflow
-			for i := s.wl.nbOriginal; i < len(s.wl.clauses); i++ {
-				s.wl.clauses[i].activity *= 1e-30
+			for _, c2 := range s.wl.learned {
+				c2.activity *= 1e-30
 			}
 			s.clauseInc *= 1e-30
 		}
@@ -198,6 +211,7 @@ func abs(val decLevel) decLevel {
 // Reinitializes bindings (both model & reason) for all variables
 // That have been bound at a decLevel >= lvl
 func (s *Solver) cleanupBindings(lvl decLevel) {
+	toInsert := make([]int, 0, len(s.trail))
 	for i, lit := range s.trail {
 		if abs(s.model[lit.Var()]) > lvl { // All lits in trail from here must be made unbound.
 			for j := i; j < len(s.trail); j++ {
@@ -210,6 +224,7 @@ func (s *Solver) cleanupBindings(lvl decLevel) {
 				}
 				s.polarity[v] = lit2.IsPositive()
 				if !s.varQueue.contains(int(v)) {
+					toInsert = append(toInsert, int(v))
 					s.varQueue.insert(int(v))
 				}
 			}
@@ -217,6 +232,26 @@ func (s *Solver) cleanupBindings(lvl decLevel) {
 			break
 		}
 	}
+	for i := len(toInsert) - 1; i >= 0; i-- {
+		s.varQueue.insert(toInsert[i])
+	}
+	/*for i := len(s.trail) - 1; i >= 0; i-- {
+		lit := s.trail[i]
+		v := lit.Var()
+		if abs(s.model[v]) <= lvl { // All lits in trail before here must keep their status.
+			s.trail = s.trail[:i+1]
+			break
+		}
+		s.model[v] = 0
+		if s.reason[v] != nil {
+			s.reason[v].unlock()
+			s.reason[v] = nil
+		}
+		s.polarity[v] = lit.IsPositive()
+		if !s.varQueue.contains(int(v)) {
+			s.varQueue.insert(int(v))
+		}
+	}*/
 }
 
 // Given the last learnt clause and the levels at which vars were bound,
@@ -234,6 +269,58 @@ func (s *Solver) rebuildOrderHeap() {
 		}
 	}
 	s.varQueue.build(ints)
+}
+
+// satClause returns true iff c is satisfied by a literal assigned at top level.
+func (s *Solver) satClause(c *Clause) bool {
+	if c.Len() == 2 || c.Cardinality() != 1 || c.PseudoBoolean() {
+		// TODO improve this, but it will be ok since we only call this function for removing useless clauses.
+		return false
+	}
+	for i := 0; i < c.Len(); i++ {
+		lit := c.Get(i)
+		assign := s.model[lit.Var()]
+		if assign == 1 && lit.IsPositive() || assign == -1 && !lit.IsPositive() {
+			return true
+		}
+	}
+	return false
+}
+
+// rmSatClauses removes all clauses that are satisfied, ie clause
+// for which a literal is asserted at top-level.
+func (s *Solver) rmSatClauses() {
+	i := 0
+	j := len(s.wl.pbClauses) - 1
+	for i <= j {
+		if c := s.wl.pbClauses[i]; s.satClause(c) {
+			s.wl.pbClauses[i] = s.wl.pbClauses[j]
+			s.tryUnwatchClause(c)
+			if v := c.First().Var(); s.reason[v] == c {
+				s.reason[v] = nil // Is this really useful? Not sure it can happen
+			}
+			j--
+		} else {
+			i++
+		}
+	}
+	s.wl.pbClauses = s.wl.pbClauses[:j+1]
+	// TODO this code duplication is ugly.Must fFix it.
+	i = 0
+	j = len(s.wl.learned) - 1
+	for i <= j {
+		if c := s.wl.learned[i]; s.satClause(c) {
+			s.wl.learned[i] = s.wl.learned[j]
+			s.tryUnwatchClause(c)
+			if v := c.First().Var(); s.reason[v] == c {
+				s.reason[v] = nil // Is this really useful? Not sure it can happen
+			}
+			j--
+		} else {
+			i++
+		}
+	}
+	s.wl.learned = s.wl.learned[:j+1]
 }
 
 // Searches until a restart is needed.
@@ -256,26 +343,31 @@ func (s *Solver) search() Status {
 			lit = s.chooseLit()
 		} else { // Deal with conflict
 			s.Stats.NbConflicts++
+			if s.Stats.NbConflicts%5000 == 0 && varDecay < 0.95 {
+				varDecay += 0.01
+			}
 			s.lbdStats.addConflict(len(s.trail))
 			learnt, unit := s.learnClause(conflict, lvl)
 			if learnt == nil { // Unit clause was learned: this lit is known for sure
-				s.lbdStats.addLbd(1)
 				s.Stats.NbUnitLearned++
+				s.lbdStats.addLbd(1)
 				s.cleanupBindings(1)
 				s.model[unit.Var()] = lvlToSignedLvl(unit, 1)
 				if conflict = s.unifyLiteral(unit, 1); conflict != nil { // top-level conflict
 					s.status = Unsat
 					return Unsat
 				}
+				// s.rmSatClauses()
 				s.rebuildOrderHeap()
 				lit = s.chooseLit()
+				lvl = 2
 			} else {
 				if learnt.Len() == 2 {
 					s.Stats.NbBinaryLearned++
 				}
 				s.Stats.NbLearned++
 				s.lbdStats.addLbd(learnt.lbd())
-				s.addClause(learnt)
+				s.addLearned(learnt)
 				lvl, lit = backtrackData(learnt, s.model)
 				s.cleanupBindings(lvl)
 				s.reason[lit.Var()] = learnt
@@ -292,9 +384,8 @@ func (s *Solver) Solve() Status {
 	if s.status == Unsat {
 		return s.status
 	}
-	s.learnDecisions()
 	s.status = Indet
-	s.lbdStats.clear()
+	//s.lbdStats.clear()
 	end := make(chan struct{})
 	defer close(end)
 	if s.Verbose {
@@ -314,7 +405,7 @@ func (s *Solver) Solve() Status {
 					iter := s.Stats.NbRestarts + 1
 					nbConfl := s.Stats.NbConflicts
 					nbReduce := s.wl.idxReduce - 1
-					nbLearned := s.wl.nbLearned
+					nbLearned := len(s.wl.learned)
 					nbDel := s.Stats.NbDeleted
 					pctDel := int(100 * float64(nbDel) / float64(s.Stats.NbLearned))
 					nbUnit := s.Stats.NbUnitLearned
@@ -327,6 +418,7 @@ func (s *Solver) Solve() Status {
 		s.search()
 		if s.status == Indet {
 			s.Stats.NbRestarts++
+			s.rebuildOrderHeap()
 		}
 	}
 	if s.Verbose {
@@ -397,6 +489,7 @@ func (s *Solver) propagateUnits(units []Lit) {
 
 // PBString returns a representation of the solver's state as a pseudo-boolean problem.
 func (s *Solver) PBString() string {
+	meta := fmt.Sprintf("* #constraint= %d #learned= %d\n", len(s.wl.pbClauses), len(s.wl.learned))
 	minLine := ""
 	if s.minLits != nil {
 		terms := make([]string, len(s.minLits))
@@ -415,9 +508,12 @@ func (s *Solver) PBString() string {
 		}
 		minLine = fmt.Sprintf("min: %s ;\n", strings.Join(terms, " +"))
 	}
-	clauses := make([]string, len(s.wl.clauses))
-	for i, c := range s.wl.clauses {
+	clauses := make([]string, len(s.wl.pbClauses)+len(s.wl.learned))
+	for i, c := range s.wl.pbClauses {
 		clauses[i] = c.PBString()
+	}
+	for i, c := range s.wl.learned {
+		clauses[i+len(s.wl.pbClauses)] = c.PBString()
 	}
 	for i := 0; i < len(s.model); i++ {
 		if s.model[i] == 1 {
@@ -426,7 +522,7 @@ func (s *Solver) PBString() string {
 			clauses = append(clauses, fmt.Sprintf("x%d = 0 ;", i+1))
 		}
 	}
-	return minLine + strings.Join(clauses, "\n")
+	return meta + minLine + strings.Join(clauses, "\n")
 }
 
 // AppendClause appends a new clause to the set of clauses.
@@ -445,6 +541,7 @@ func (s *Solver) AppendClause(clause *Clause) {
 			minW += w
 			maxW += w
 			clause.removeLit(i)
+			clause.updateCardinality(-w)
 		case Unsat:
 			clause.removeLit(i)
 		default:
@@ -489,7 +586,7 @@ func (s *Solver) Minimize() (cost int, model []bool) {
 	if status == Unsat { // Problem cannot be satisfied at all
 		return -1, nil
 	}
-	if s.minLits == nil {
+	if s.minLits == nil { // No optimization clause: this is a decision problem, solution is optimal
 		return 0, s.Model()
 	}
 	maxCost := 0
@@ -504,7 +601,7 @@ func (s *Solver) Minimize() (cost int, model []bool) {
 		model = s.Model()
 		cost = 0
 		for i, lit := range s.minLits {
-			if model[lit.Var()] {
+			if model[lit.Var()] == lit.IsPositive() {
 				if s.minWeights == nil {
 					cost++
 				} else {
@@ -526,6 +623,8 @@ func (s *Solver) Minimize() (cost int, model []bool) {
 		}
 		copy(weights2, s.minWeights)
 		s.AppendClause(NewPBClause(lits2, weights2, maxCost-cost+1))
+		s.resetOptimPolarity()
+		s.rebuildOrderHeap()
 		status = s.Solve()
 	}
 	return cost, model
