@@ -37,13 +37,9 @@ func runOptimTest(test optimTest, t *testing.T) {
 }
 
 var optimTests = []optimTest{
-	{"testcnf/25.cnf", 0},
-	{"testcnf/50.cnf", 0},
-	{"testcnf/75.cnf", 0},
 	{"testcnf/100.cnf", 0},
 	{"testcnf/125.cnf", -1},
 	{"testcnf/150.cnf", -1},
-	{"testcnf/175.cnf", -1},
 	{"testcnf/200.cnf", -1},
 	{"testcnf/225.cnf", 0},
 	{"testcnf/hoons-vbmc-lucky7.cnf", -1},
@@ -54,4 +50,24 @@ func TestMinimize(t *testing.T) {
 	for _, test := range optimTests {
 		runOptimTest(test, t)
 	}
+}
+
+func runOptimBench(path string, b *testing.B) {
+	f, err := os.Open(path)
+	if err != nil {
+		b.Fatal(err.Error())
+	}
+	defer func() { _ = f.Close() }()
+	for i := 0; i < b.N; i++ {
+		pb, err := ParseOPB(f)
+		if err != nil {
+			b.Fatal(err.Error())
+		}
+		s := New(pb)
+		s.Minimize()
+	}
+}
+
+func BenchmarkLo88(b *testing.B) {
+	runOptimBench("testcnf/lo_8x8_009.opb", b)
 }
