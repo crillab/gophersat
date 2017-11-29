@@ -55,7 +55,21 @@ func parseAndSolve(r io.Reader) error {
 	if errOPB != nil {
 		return fmt.Errorf("could not parse content as DIMACS (%v), as boolean formula (%v), nor as a pseudo-boolean problem (%v)", errCNF, errBF, errOPB)
 	}
-	return solveCNF(pb)
+	return minimize(pb)
+}
+
+func minimize(pb *solver.Problem) error {
+	fmt.Printf("c ======================================================================================\n")
+	fmt.Printf("c | Number of clauses   : %9d                                                    |\n", len(pb.Clauses))
+	fmt.Printf("c | Number of variables : %9d                                                    |\n", pb.NbVars)
+	s := solver.New(pb)
+	s.Verbose = true
+	s.Minimize()
+	fmt.Printf("c nb conflicts: %d\nc nb restarts: %d\nc nb decisions: %d\n", s.Stats.NbConflicts, s.Stats.NbRestarts, s.Stats.NbDecisions)
+	fmt.Printf("c nb unit learned: %d\nc nb binary learned: %d\nc nb learned: %d\n", s.Stats.NbUnitLearned, s.Stats.NbBinaryLearned, s.Stats.NbLearned)
+	fmt.Printf("c nb clauses deleted: %d\n", s.Stats.NbDeleted)
+	s.OutputModel()
+	return nil
 }
 
 func solveCNF(pb *solver.Problem) error {
