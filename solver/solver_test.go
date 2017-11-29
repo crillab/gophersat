@@ -205,6 +205,15 @@ func BenchmarkSolverHoons(b *testing.B) {
 func BenchmarkSolverGss(b *testing.B) {
 	runBench("testcnf/gss-13-s100.cnf", b)
 }
+
 func BenchmarkXinetd(b *testing.B) {
 	runBench("testcnf/xinetd_vc56703.cnf", b)
+}
+
+func BenchmarkSmulo(b *testing.B) {
+	runBench("testcnf/smulo016.cnf", b)
+}
+
+func BenchmarkVMPC(b *testing.B) {
+	runBench("testcnf/vmpc_24.cnf", b)
 }
