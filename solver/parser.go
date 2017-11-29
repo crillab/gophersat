@@ -272,7 +272,7 @@ func (pb *Problem) parsePBLine(line string) error {
 }
 
 func (pb *Problem) parsePBConstrLine(fields []string, line string) error {
-	if len(fields) < 4 || len(fields)%2 != 0 {
+	if len(fields) < 3 {
 		return fmt.Errorf("invalid syntax %q", line)
 	}
 	operator := fields[len(fields)-2]
@@ -317,32 +317,42 @@ func (pb *Problem) parsePBConstrLine(fields []string, line string) error {
 }
 
 func (pb *Problem) parseTerms(terms []string, line string) (weights []int, lits []int, err error) {
-	weights = make([]int, len(terms)/2)
-	lits = make([]int, len(terms)/2)
-	for i := range weights {
-		w, err := strconv.Atoi(terms[i*2])
+	weights = make([]int, 0, len(terms)/2)
+	lits = make([]int, 0, len(terms)/2)
+	i := 0
+	for i < len(terms) {
+		var l string
+		w, err := strconv.Atoi(terms[i])
 		if err != nil {
-			return nil, nil, fmt.Errorf("invalid weight %q in %q: %v", terms[i*2], line, err)
-		}
-		weights[i] = w
-		l := terms[i*2+1]
-		if !strings.HasPrefix(l, "x") && !strings.HasPrefix(l, "~x") || len(l) < 2 {
-			return nil, nil, fmt.Errorf("invalid variable name %q in %q", l, line)
-		}
-		if l[0] == '~' {
-			lits[i], err = strconv.Atoi(l[2:])
+			l = terms[i]
+			if !strings.HasPrefix(l, "x") && !strings.HasPrefix(l, "~x") {
+				return nil, nil, fmt.Errorf("invalid weight %q in %q: %v", terms[i*2], line, err)
+			}
+			// This is a weightless lit, i.e a lit with weight 1.
+			weights = append(weights, 1)
 		} else {
-			lits[i], err = strconv.Atoi(l[1:])
+			weights = append(weights, w)
+			i++
+			l = terms[i]
+			if !strings.HasPrefix(l, "x") && !strings.HasPrefix(l, "~x") || len(l) < 2 {
+				return nil, nil, fmt.Errorf("invalid variable name %q in %q", l, line)
+			}
+		}
+		var lit int
+		if l[0] == '~' {
+			lit, err = strconv.Atoi(l[2:])
+			lits = append(lits, -lit)
+		} else {
+			lit, err = strconv.Atoi(l[1:])
+			lits = append(lits, lit)
 		}
 		if err != nil {
 			return nil, nil, fmt.Errorf("invalid variable %q in %q: %v", l, line, err)
 		}
-		if lits[i] > pb.NbVars {
-			pb.NbVars = lits[i]
+		if lit > pb.NbVars {
+			pb.NbVars = lit
 		}
-		if l[0] == '~' {
-			lits[i] = -lits[i]
-		}
+		i++
 	}
 	return weights, lits, nil
 }
