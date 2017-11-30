@@ -2,6 +2,7 @@ package solver
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 )
@@ -66,14 +67,16 @@ type Solver struct {
 	polarity []bool    // Preferred sign for each var
 	// For each var, clause considered when it was unified
 	// If the var is not bound yet, or if it was bound by a decision, value is nil.
-	reason     []*Clause
-	varQueue   queue
-	varInc     float64 // On each var bump, how big the increment should be
-	clauseInc  float32 // On each var bump, how big the increment should be
-	lbdStats   lbdStats
-	Stats      Stats // Statistics about the solving process.
-	minLits    []Lit // Lits to minimize if the problem was an optimization problem.
-	minWeights []int // Weight of each lit to minimize if the problem was an optimization problem.
+	reason          []*Clause
+	varQueue        queue
+	varInc          float64 // On each var bump, how big the increment should be
+	clauseInc       float32 // On each var bump, how big the increment should be
+	lbdStats        lbdStats
+	Stats           Stats // Statistics about the solving process.
+	minLits         []Lit // Lits to minimize if the problem was an optimization problem.
+	minWeights      []int // Weight of each lit to minimize if the problem was an optimization problem.
+	asumptions      []Lit // Literals that are, ideally, true. Useful when trying to minimize a function.
+	localNbRestarts int   // How many restarts since Solve() was called?
 }
 
 // New makes a solver, given a number of variables and a set of clauses.
@@ -94,7 +97,7 @@ func New(problem *Problem) *Solver {
 		minLits:    problem.minLits,
 		minWeights: problem.minWeights,
 	}
-	s.resetOptimPolarity()
+	//s.resetOptimPolarity()
 	s.initWatcherList(problem.Clauses)
 	s.varQueue = newQueue(s.activity)
 	for _, lit := range problem.Units {
@@ -188,6 +191,14 @@ func (s *Solver) clauseBumpActivity(c *Clause) {
 // Chooses an unbound literal to be tested, or -1
 // if all the variables are already bound.
 func (s *Solver) chooseLit() Lit {
+	if s.localNbRestarts == 1 { // Only start by asumptions at first iteration
+		for _, lit := range s.asumptions {
+			if s.model[lit.Var()] == 0 {
+				// fmt.Printf("%dth asumption (%d) is unbound: return %d!\n", i, lit.Int(), lit.Int())
+				return lit
+			}
+		}
+	}
 	v := Var(-1)
 	for v == -1 && !s.varQueue.empty() {
 		if v2 := Var(s.varQueue.removeMin()); s.model[v2] == 0 { // Ignore already bound vars
@@ -323,10 +334,9 @@ func (s *Solver) rmSatClauses() {
 	s.wl.learned = s.wl.learned[:j+1]
 }
 
-// Searches until a restart is needed.
-func (s *Solver) search() Status {
-	lvl := decLevel(2) // Level starts at 2, for implementation reasons : 1 is for top-level bindings; 0 means "no level assigned yet"
-	lit := s.chooseLit()
+// propagate binds the given lit, propagates it and searches for a solution,
+// until it is found or a restart is needed.
+func (s *Solver) propagateAndSearch(lit Lit, lvl decLevel) Status {
 	for lit != -1 {
 		if conflict := s.unifyLiteral(lit, lvl); conflict == nil { // Pick new branch or restart
 			if s.lbdStats.mustRestart() {
@@ -375,7 +385,14 @@ func (s *Solver) search() Status {
 			}
 		}
 	}
-	s.status = Sat
+	return Sat
+}
+
+// Searches until a restart is needed.
+func (s *Solver) search() Status {
+	s.localNbRestarts++
+	lvl := decLevel(2) // Level starts at 2, for implementation reasons : 1 is for top-level bindings; 0 means "no level assigned yet"
+	s.status = s.propagateAndSearch(s.chooseLit(), lvl)
 	return s.status
 }
 
@@ -395,7 +412,7 @@ func (s *Solver) Solve() Status {
 			fmt.Printf("c ======================================================================================\n")
 			ticker := time.NewTicker(3 * time.Second)
 			defer ticker.Stop()
-			for s.status == Indet { // There might be concurrent access in a few places but this is okay since we are very conservative and don't modify state.
+			for { // There might be concurrent access in a few places but this is okay since we are very conservative and don't modify state.
 				select {
 				case <-ticker.C:
 				case <-end:
@@ -414,6 +431,7 @@ func (s *Solver) Solve() Status {
 			}
 		}()
 	}
+	s.localNbRestarts = 0
 	for s.status == Indet {
 		s.search()
 		if s.status == Indet {
@@ -431,7 +449,9 @@ func (s *Solver) Solve() Status {
 // CountModels returns the total number of models for the given problem.
 func (s *Solver) CountModels() int {
 	nb := 0
-	for s.status != Unsat {
+	lit := s.chooseLit()
+	lvl := decLevel(2)
+	for {
 		for s.status == Indet {
 			s.search()
 			if s.status == Indet {
@@ -441,36 +461,44 @@ func (s *Solver) CountModels() int {
 		if s.status == Sat {
 			nb++
 			s.status = Indet
-			s.learnDecisions()
-		}
-	}
-	return nb
-}
-
-// learnDecisions learns the negation of all decision values once a model was found.
-// This will allow for searching other models.
-func (s *Solver) learnDecisions() {
-	var lits []Lit
-	for i, r := range s.reason {
-		if r == nil && abs(s.model[i]) > 1 {
-			if s.model[i] < 0 {
-				lits = append(lits, IntToLit(int32(i+1)))
-			} else {
-				lits = append(lits, IntToLit(int32(-i-1)))
+			lits := s.decisionLits()
+			switch len(lits) {
+			case 0:
+				s.status = Unsat
+				return nb
+			case 1:
+				s.propagateUnits(lits)
+			default:
+				c := NewClause(lits)
+				s.appendClause(c)
+				lit = lits[len(lits)-1]
+				v := lit.Var()
+				lvl = abs(s.model[v]) - 1
+				s.cleanupBindings(lvl)
+				s.reason[v] = c // Must do it here because it won't be made by propagateAndSearch
+				s.propagateAndSearch(lit, lvl)
 			}
 		}
 	}
-	switch len(lits) {
-	case 0:
-		if s.status == Sat { // We already had a model: no more can be found
-			s.status = Unsat
+}
+
+// decisionLits returns the negation of all decision values once a model was found, ordered by decision levels.
+// This will allow for searching other models.
+func (s *Solver) decisionLits() []Lit {
+	lastLit := s.trail[len(s.trail)-1]
+	lvls := abs(s.model[lastLit.Var()])
+	lits := make([]Lit, lvls-1)
+	for i, r := range s.reason {
+		if lvl := abs(s.model[i]); r == nil && lvl > 1 {
+			if s.model[i] < 0 {
+				// lvl-2 : levels beside unit clauses start at 2, not 0 or 1!
+				lits[lvl-2] = IntToLit(int32(i + 1))
+			} else {
+				lits[lvl-2] = IntToLit(int32(-i - 1))
+			}
 		}
-	case 1:
-		s.propagateUnits(lits)
-	default:
-		s.appendClause(NewClause(lits))
-		s.cleanupBindings(1)
 	}
+	return lits
 }
 
 func (s *Solver) propagateUnits(units []Lit) {
@@ -489,7 +517,7 @@ func (s *Solver) propagateUnits(units []Lit) {
 
 // PBString returns a representation of the solver's state as a pseudo-boolean problem.
 func (s *Solver) PBString() string {
-	meta := fmt.Sprintf("* #constraint= %d #learned= %d\n", len(s.wl.pbClauses), len(s.wl.learned))
+	meta := fmt.Sprintf("* #variable= %d #constraint= %d #learned= %d\n", s.nbVars, len(s.wl.pbClauses), len(s.wl.learned))
 	minLine := ""
 	if s.minLits != nil {
 		terms := make([]string, len(s.minLits))
@@ -517,9 +545,9 @@ func (s *Solver) PBString() string {
 	}
 	for i := 0; i < len(s.model); i++ {
 		if s.model[i] == 1 {
-			clauses = append(clauses, fmt.Sprintf("x%d = 1 ;", i+1))
+			clauses = append(clauses, fmt.Sprintf("1 x%d = 1 ;", i+1))
 		} else if s.model[i] == -1 {
-			clauses = append(clauses, fmt.Sprintf("x%d = 0 ;", i+1))
+			clauses = append(clauses, fmt.Sprintf("1 x%d = 0 ;", i+1))
 		}
 	}
 	return meta + minLine + strings.Join(clauses, "\n")
@@ -597,6 +625,13 @@ func (s *Solver) Minimize() (cost int, model []bool) {
 			maxCost += w
 		}
 	}
+	s.asumptions = make([]Lit, len(s.minLits))
+	for i, lit := range s.minLits {
+		s.asumptions[i] = lit.Negation()
+	}
+	weights := make([]int, len(s.minWeights))
+	copy(weights, s.minWeights)
+	sort.Sort(wLits{lits: s.asumptions, weights: weights})
 	for status == Sat {
 		model = s.Model()
 		cost = 0
@@ -618,14 +653,26 @@ func (s *Solver) Minimize() (cost int, model []bool) {
 		// Add a constraint incrementing current best cost
 		lits2 := make([]Lit, len(s.minLits))
 		weights2 := make([]int, len(s.minWeights))
-		for i, lit := range s.minLits {
-			lits2[i] = lit.Negation()
-		}
-		copy(weights2, s.minWeights)
+		copy(lits2, s.asumptions)
+		copy(weights2, weights)
 		s.AppendClause(NewPBClause(lits2, weights2, maxCost-cost+1))
-		s.resetOptimPolarity()
 		s.rebuildOrderHeap()
+		//fmt.Println(s.PBString())
 		status = s.Solve()
 	}
 	return cost, model
+}
+
+// functions to sort asumptions for pseudo-boolean minimization clause.
+type wLits struct {
+	lits    []Lit
+	weights []int
+}
+
+func (wl wLits) Len() int           { return len(wl.lits) }
+func (wl wLits) Less(i, j int) bool { return wl.weights[i] > wl.weights[j] }
+
+func (wl wLits) Swap(i, j int) {
+	wl.lits[i], wl.lits[j] = wl.lits[j], wl.lits[i]
+	wl.weights[i], wl.weights[j] = wl.weights[j], wl.weights[i]
 }
