@@ -14,6 +14,7 @@ import (
 )
 
 func main() {
+	// defer profile.Start().Stop()
 	debug.SetGCPercent(300)
 	if len(os.Args) > 2 {
 		fmt.Fprintf(os.Stderr, "Syntax : %s [file.cnf|file.bf]\n", os.Args[0])
