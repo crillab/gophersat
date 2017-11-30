@@ -198,6 +198,45 @@ func ExampleParseCardConstrs() {
 	// Problem is not satisfiable
 }
 
+func TestCountModel(t *testing.T) {
+	clauses := []CardConstr{
+		AtLeast1(1, 2, 3),
+		AtLeast1(-1, -2, -3),
+		AtLeast1(2, 3, 4),
+		AtLeast1(2, 3, 5),
+		AtLeast1(3, 4, 5),
+		AtLeast1(2, 4, 5),
+	}
+	pb := ParseCardConstrs(clauses)
+	s := New(pb)
+	if nb := s.CountModels(); nb != 17 {
+		t.Errorf("Invalid #models: expected %d, got %d", 17, nb)
+	}
+}
+
+func BenchmarkCountModels(b *testing.B) {
+	clauses := []CardConstr{
+		AtLeast1(1, 2, 3),
+		AtLeast1(-1, -2, -3),
+		AtLeast1(2, 3, 4),
+		AtLeast1(2, 3, 5),
+		AtLeast1(3, 4, 5),
+		AtLeast1(2, 4, 5),
+		AtLeast1(-2, -3, -6),
+		AtLeast1(4, 5, 6),
+		AtLeast1(1, 2, 3, 4, 5, 6, 7, 8, 9, 10),
+		AtLeast1(-7, -10),
+		//AtLeast1(11, 12, 13, 14, 15, 16, 17, 18, 19, 20),
+		//AtLeast1(21, 22, 23, 24, 25, 26, 27, 28, 29, 30),
+		//AtLeast1(50, 100),
+	}
+	for i := 0; i < b.N; i++ {
+		pb := ParseCardConstrs(clauses)
+		s := New(pb)
+		s.CountModels()
+	}
+}
+
 func BenchmarkSolverHoons(b *testing.B) {
 	runBench("testcnf/hoons-vbmc-lucky7.cnf", b)
 }
@@ -216,4 +255,8 @@ func BenchmarkSmulo(b *testing.B) {
 
 func BenchmarkVMPC(b *testing.B) {
 	runBench("testcnf/vmpc_24.cnf", b)
+}
+
+func BenchmarkACG(b *testing.B) {
+	runBench("testcnf/ACG-10-5p0.cnf", b)
 }
