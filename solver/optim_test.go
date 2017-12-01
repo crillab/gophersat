@@ -31,7 +31,7 @@ func runOptimTest(test optimTest, t *testing.T) {
 		return
 	}
 	s := New(pb)
-	if cost, _ := s.Minimize(); cost != test.cost {
+	if cost := s.Minimize(); cost != test.cost {
 		t.Errorf("Invalid result while minimizing %q: expected cost %d, got %d", test.path, test.cost, cost)
 	}
 }

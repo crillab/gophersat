@@ -57,14 +57,15 @@ func (m Model) String() string {
 
 // A Solver solves a given problem. It is the main data structure.
 type Solver struct {
-	Verbose  bool // Indicates whether the solver should display information during solving or not. False by default
-	nbVars   int
-	status   Status
-	wl       watcherList
-	trail    []Lit     // Current assignment stack
-	model    Model     // 0 means unbound, other value is a binding
-	activity []float64 // How often each var is involved in conflicts
-	polarity []bool    // Preferred sign for each var
+	Verbose   bool // Indicates whether the solver should display information during solving or not. False by default
+	nbVars    int
+	status    Status
+	wl        watcherList
+	trail     []Lit     // Current assignment stack
+	model     Model     // 0 means unbound, other value is a binding
+	lastModel Model     // Placeholder for last model found, useful when looking for several models
+	activity  []float64 // How often each var is involved in conflicts
+	polarity  []bool    // Preferred sign for each var
 	// For each var, clause considered when it was unified
 	// If the var is not bound yet, or if it was bound by a decision, value is nil.
 	reason          []*Clause
@@ -122,12 +123,7 @@ func (s *Solver) resetOptimPolarity() {
 
 // OutputModel outputs the model for the problem on stdout.
 func (s *Solver) OutputModel() {
-	switch s.status {
-	case Unsat:
-		fmt.Printf("UNSATISFIABLE\n")
-	case Indet:
-		fmt.Printf("INDETERMINATE\n")
-	case Sat:
+	if s.status == Sat || s.lastModel != nil {
 		fmt.Printf("SATISFIABLE\n")
 		for i, val := range s.model {
 			if val < 0 {
@@ -137,6 +133,10 @@ func (s *Solver) OutputModel() {
 			}
 		}
 		fmt.Printf("\n")
+	} else if s.status == Unsat {
+		fmt.Printf("UNSATISFIABLE\n")
+	} else {
+		fmt.Printf("INDETERMINATE\n")
 	}
 }
 
@@ -403,9 +403,11 @@ func (s *Solver) Solve() Status {
 	}
 	s.status = Indet
 	//s.lbdStats.clear()
-	end := make(chan struct{})
-	defer close(end)
+	s.localNbRestarts = 0
+	var end chan struct{}
 	if s.Verbose {
+		end = make(chan struct{})
+		defer close(end)
 		go func() { // Function displaying stats during resolution
 			fmt.Printf("c ======================================================================================\n")
 			fmt.Printf("c | Restarts |  Conflicts  |  Learned  |  Deleted  | Del%% | Reduce |   Units learned   |\n")
@@ -431,13 +433,16 @@ func (s *Solver) Solve() Status {
 			}
 		}()
 	}
-	s.localNbRestarts = 0
 	for s.status == Indet {
 		s.search()
 		if s.status == Indet {
 			s.Stats.NbRestarts++
 			s.rebuildOrderHeap()
 		}
+	}
+	if s.status == Sat {
+		s.lastModel = make(Model, len(s.model))
+		copy(s.lastModel, s.model)
 	}
 	if s.Verbose {
 		end <- struct{}{}
@@ -448,10 +453,39 @@ func (s *Solver) Solve() Status {
 
 // CountModels returns the total number of models for the given problem.
 func (s *Solver) CountModels() int {
+	var end chan struct{}
+	if s.Verbose {
+		end = make(chan struct{})
+		defer close(end)
+		go func() { // Function displaying stats during resolution
+			fmt.Printf("c ======================================================================================\n")
+			fmt.Printf("c | Restarts |  Conflicts  |  Learned  |  Deleted  | Del%% | Reduce |   Units learned   |\n")
+			fmt.Printf("c ======================================================================================\n")
+			ticker := time.NewTicker(3 * time.Second)
+			defer ticker.Stop()
+			for { // There might be concurrent access in a few places but this is okay since we are very conservative and don't modify state.
+				select {
+				case <-ticker.C:
+				case <-end:
+					return
+				}
+				if s.status == Indet {
+					iter := s.Stats.NbRestarts + 1
+					nbConfl := s.Stats.NbConflicts
+					nbReduce := s.wl.idxReduce - 1
+					nbLearned := len(s.wl.learned)
+					nbDel := s.Stats.NbDeleted
+					pctDel := int(100 * float64(nbDel) / float64(s.Stats.NbLearned))
+					nbUnit := s.Stats.NbUnitLearned
+					fmt.Printf("c | %8d | %11d | %9d | %9d | %3d%% | %6d | %8d/%8d |\n", iter, nbConfl, nbLearned, nbDel, pctDel, nbReduce, nbUnit, s.nbVars)
+				}
+			}
+		}()
+	}
 	nb := 0
 	lit := s.chooseLit()
 	lvl := decLevel(2)
-	for {
+	for s.status != Unsat {
 		for s.status == Indet {
 			s.search()
 			if s.status == Indet {
@@ -460,12 +494,14 @@ func (s *Solver) CountModels() int {
 		}
 		if s.status == Sat {
 			nb++
+			if s.Verbose {
+				fmt.Printf("c found %d model(s)\n", nb)
+			}
 			s.status = Indet
 			lits := s.decisionLits()
 			switch len(lits) {
 			case 0:
 				s.status = Unsat
-				return nb
 			case 1:
 				s.propagateUnits(lits)
 			default:
@@ -480,6 +516,11 @@ func (s *Solver) CountModels() int {
 			}
 		}
 	}
+	if s.Verbose {
+		end <- struct{}{}
+		fmt.Printf("c ======================================================================================\n")
+	}
+	return nb
 }
 
 // decisionLits returns the negation of all decision values once a model was found, ordered by decision levels.
@@ -594,11 +635,11 @@ func (s *Solver) AppendClause(clause *Clause) {
 // Model returns a slice that associates, to each variable, its binding.
 // If s's status is not Sat, the method will panic.
 func (s *Solver) Model() []bool {
-	if s.status != Sat {
+	if s.lastModel == nil {
 		panic("cannot call Model() from a non-Sat solver")
 	}
 	res := make([]bool, s.nbVars)
-	for i, lvl := range s.model {
+	for i, lvl := range s.lastModel {
 		res[i] = lvl > 0
 	}
 	return res
@@ -606,16 +647,16 @@ func (s *Solver) Model() []bool {
 
 // Minimize tries to find a model that minimizes the weight of the clause defined as the optimisation clause in the problem.
 // If no model can be found, it will return a cost of -1.
-// Otherwise, it will return the cost and model that satisfy the formula, such that no other model with a smaller cost exists.
+// Otherwise, calling s.Model() afterwards will return the model that satisfy the formula, such that no other model with a smaller cost exists.
 // If this function is called on a non-optimization problem, it will either return -1, or a cost of 0 associated with a
-// satosfying model (ie any model is an optimal model).
-func (s *Solver) Minimize() (cost int, model []bool) {
+// satisfying model (ie any model is an optimal model).
+func (s *Solver) Minimize() int {
 	status := s.Solve()
 	if status == Unsat { // Problem cannot be satisfied at all
-		return -1, nil
+		return -1
 	}
 	if s.minLits == nil { // No optimization clause: this is a decision problem, solution is optimal
-		return 0, s.Model()
+		return 0
 	}
 	maxCost := 0
 	if s.minWeights == nil {
@@ -632,11 +673,13 @@ func (s *Solver) Minimize() (cost int, model []bool) {
 	weights := make([]int, len(s.minWeights))
 	copy(weights, s.minWeights)
 	sort.Sort(wLits{lits: s.asumptions, weights: weights})
+	s.lastModel = make(Model, len(s.model))
+	var cost int
 	for status == Sat {
-		model = s.Model()
+		copy(s.lastModel, s.model) // Save this model: it might be the last one
 		cost = 0
 		for i, lit := range s.minLits {
-			if model[lit.Var()] == lit.IsPositive() {
+			if (s.model[lit.Var()] > 0) == lit.IsPositive() {
 				if s.minWeights == nil {
 					cost++
 				} else {
@@ -645,7 +688,7 @@ func (s *Solver) Minimize() (cost int, model []bool) {
 			}
 		}
 		if cost == 0 {
-			return 0, model
+			return 0
 		}
 		if s.Verbose {
 			fmt.Printf("o %d\n", cost)
@@ -660,7 +703,7 @@ func (s *Solver) Minimize() (cost int, model []bool) {
 		//fmt.Println(s.PBString())
 		status = s.Solve()
 	}
-	return cost, model
+	return cost
 }
 
 // functions to sort asumptions for pseudo-boolean minimization clause.
