@@ -27,13 +27,21 @@ func main() {
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
-	if pb, err := parse(flag.Args()[0]); err != nil {
-		fmt.Fprintf(os.Stdout, "could not parse problem: %v\n", err)
-		os.Exit(1)
-	} else if count {
-		countModels(pb, verbose)
+	path := flag.Args()[0]
+	if strings.HasSuffix(path, ".bf") {
+		if err := parseAndSolveBF(path); err != nil {
+			fmt.Fprintf(os.Stderr, "could not parse formula: %v\n", err)
+			os.Exit(1)
+		}
 	} else {
-		solve(pb, verbose)
+		if pb, err := parse(flag.Args()[0]); err != nil {
+			fmt.Fprintf(os.Stderr, "could not parse problem: %v\n", err)
+			os.Exit(1)
+		} else if count {
+			countModels(pb, verbose)
+		} else {
+			solve(pb, verbose)
+		}
 	}
 }
 
@@ -63,6 +71,20 @@ func solve(pb *solver.Problem, verbose bool) {
 		fmt.Printf("c nb clauses deleted: %d\n", s.Stats.NbDeleted)
 	}
 	s.OutputModel()
+}
+
+func parseAndSolveBF(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("could not open %q: %v", path, err)
+	}
+	defer f.Close()
+	form, err := bf.Parse(f)
+	if err != nil {
+		return fmt.Errorf("could not parse formula in %q: %v", path, err)
+	}
+	solveBF(form)
+	return nil
 }
 
 func parse(path string) (pb *solver.Problem, err error) {
@@ -123,7 +145,7 @@ func solveCNF(pb *solver.Problem) error {
 	return nil
 }
 
-func solveBF(f bf.Formula) error {
+func solveBF(f bf.Formula) {
 	if model := bf.Solve(f); model == nil {
 		fmt.Println("UNSATISFIABLE")
 	} else {
@@ -137,5 +159,4 @@ func solveBF(f bf.Formula) error {
 			fmt.Printf("%s: %t\n", k, model[k])
 		}
 	}
-	return nil
 }
