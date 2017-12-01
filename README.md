@@ -22,8 +22,13 @@ github.com/crillab/gophersat`
 
 ### Solving SAT problems
 
-Gophersat can be used as a standalone solver (reading DIMACS CNF files
-from a file or standard input) or as a library in any go program.
+Gophersat can be used as a standalone solver (reading DIMACS CNF files) or as a library in any go program.
+
+To solve a DIMACS file, you can call gophersat with the following syntax:
+
+    gophersat --verbose file.cnf
+
+where `--verbose` is an optional parameters that makes the solver display informations during the solving process.
 
 Gophersat is also able to read and solve more general boolean formulas,
 not only problems represented in the user-unfriendly DIMACS format.
@@ -32,13 +37,21 @@ n literals true, with n > 1.
 
 ### Solving pseudo-boolean problems
 
-Gophersat can be used as a standalone solver (reading OPB files from a file or
-standatd input) or as a library in any go program.
+Gophersat can be used as a standalone solver (reading OPB files) or as a library in any go program.
+
+To solve a pseudo-boolean problem (whether a decision one or an optimisation one), you can call gophersat with the
+following syntax:
+
+    gophersat --verbose file.opb
+
+where `--verbose` is an optional parameters that makes the solver display informations during the solving process.
 
 For the moment, it can only solve the so-called DEC-SMALLINT-LIN problems and OPT-SMALLINT-LIN,
 i.e decision problems (is there a solution or not), for linear constraints (a sum of weighted literals)
 on small integers (n < 2^30), or optimization problems (what is the best solution, minimizing a given cost function),
 for linear constraints on small integers.
+Please also note that PB optimization is currently under heavy development and, although correct, will probably
+not meet your performance requirements yet.
 
 ## What is a SAT solver? What is the SAT problem?
 SAT, which stands for *Boolean Satisfiability Problem*, is the canonical
@@ -67,7 +80,7 @@ formulas so they can be used by gophersat in the [tutorial "SAT for
 noobs"](examples/sat-for-noobs.md).
 
 ## What about pseudo-boolean problems?
-Pseudo-boolean problems are a generalization of SAT problems: any propositional clause
+Pseudo-boolean problems are, in a way, a generalization of SAT problems: any propositional clause
 can be written as a single pseudo-boolean constraint, but representing a pseudo-boolean constraint
 can require an exponential number of propositional clauses.
 
@@ -75,13 +88,13 @@ A pseudo-boolean expression is an expression like:
 
     w1 l1 + w2 x2 + ... + wn xn ≥ y
 
-where y and all wi are integer constants and all li are boolean literals.
+where `y` and all `wi` are integer constants and all `li` are boolean literals.
 
 For instance, for the following expression to be true
 
     2 ¬x1 + x2 + x3 ≥ 3
 
-the boolean variable x1 must be false, and at least one of x2 and x3 must be true.
+the boolean variable `x1` must be false, and at least one of `x2` and `x3` must be true.
 This is equivalent to the propositional formula
 
     ¬x1 ∧ (x2 ∨ x3)
@@ -108,7 +121,7 @@ Please note that optimization is at an early stage of development.
 Performance needs to be improved.
 
 ## Is Gophersat fast? Why use it at all?
-Yes and no. It is much faster than naïve implementations, but slower than
+Yes and no. It is much faster than naïve implementations, fast enough to be used on real-world problems, but slower than
 top-level, highly optimised, state-of-the-art solvers.
 
 Gophersat is not aiming at being the fastest SAT/PB solver available. The
@@ -128,7 +141,7 @@ Gophersat is also providing cool features not always available with other solver
 describing and solving NP-hard problems that can easily be reduced to a SAT instance.
 
 ## Do I have to represent my SAT problem as CNF? Am I forced to use the unfriendly DIMACS format?
-Not anymore. The `bf` (for "boolean formula") package provides facilities to
+No. The `bf` (for "boolean formula") package provides facilities to
 translate any boolean formula to CNF.
 
 Helper packages for describing optimization problems (such as weighted partial MAXSAT)
@@ -136,6 +149,12 @@ and pseudo-boolean problems will come soon. Stay tuned.
 
 ## Can I know how many solutions there are for a given formula?
 This is known as model counting, and yes, there is a function for that: solver.Solver.CountModels.
+
+You can also count models from command line, with
+
+    gophersat --count filename
+
+where filename can be a .opb or a .cnf file.
 
 ## What else does it feature?
 For the moment, not very much. It does not
