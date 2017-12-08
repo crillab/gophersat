@@ -3,7 +3,7 @@ package solver
 const (
 	nbMaxRecent      = 50 // How many recent LBD values we consider; "X" in papers about LBD.
 	triggerRestartK  = 0.8
-	nbMaxTrail       = 5000 // How many elements in queuTrail we consider; "Y" in papers about LBD.
+	nbMaxTrail       = 5000 // How many elements in queueTrail we consider; "Y" in papers about LBD.
 	postponeRestartT = 1.4
 )
 
