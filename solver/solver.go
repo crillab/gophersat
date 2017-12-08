@@ -98,7 +98,8 @@ func New(problem *Problem) *Solver {
 		minLits:    problem.minLits,
 		minWeights: problem.minWeights,
 	}
-	//s.resetOptimPolarity()
+	s.resetOptimPolarity()
+	s.initOptimActivity()
 	s.initWatcherList(problem.Clauses)
 	s.varQueue = newQueue(s.activity)
 	for _, lit := range problem.Units {
@@ -110,6 +111,17 @@ func New(problem *Problem) *Solver {
 		s.trail = append(s.trail, lit)
 	}
 	return s
+}
+
+// sets initial activity for optimization variables, if any.
+func (s *Solver) initOptimActivity() {
+	for i, lit := range s.minLits {
+		w := 1
+		if s.minWeights != nil {
+			w = s.minWeights[i]
+		}
+		s.activity[lit.Var()] += float64(w)
+	}
 }
 
 // resets polarity of optimization lits so that they are negated by default.
@@ -191,14 +203,6 @@ func (s *Solver) clauseBumpActivity(c *Clause) {
 // Chooses an unbound literal to be tested, or -1
 // if all the variables are already bound.
 func (s *Solver) chooseLit() Lit {
-	if s.localNbRestarts == 1 { // Only start by asumptions at first iteration
-		for _, lit := range s.asumptions {
-			if s.model[lit.Var()] == 0 {
-				// fmt.Printf("%dth asumption (%d) is unbound: return %d!\n", i, lit.Int(), lit.Int())
-				return lit
-			}
-		}
-	}
 	v := Var(-1)
 	for v == -1 && !s.varQueue.empty() {
 		if v2 := Var(s.varQueue.removeMin()); s.model[v2] == 0 { // Ignore already bound vars
@@ -246,6 +250,7 @@ func (s *Solver) cleanupBindings(lvl decLevel) {
 	for i := len(toInsert) - 1; i >= 0; i-- {
 		s.varQueue.insert(toInsert[i])
 	}
+	s.resetOptimPolarity()
 	/*for i := len(s.trail) - 1; i >= 0; i-- {
 		lit := s.trail[i]
 		v := lit.Var()
@@ -341,6 +346,7 @@ func (s *Solver) propagateAndSearch(lit Lit, lvl decLevel) Status {
 		if conflict := s.unifyLiteral(lit, lvl); conflict == nil { // Pick new branch or restart
 			if s.lbdStats.mustRestart() {
 				s.lbdStats.clear()
+				// s.cleanupBindings(decLevel(len(s.asumptions)) + 1)
 				s.cleanupBindings(1)
 				return Indet
 			}
