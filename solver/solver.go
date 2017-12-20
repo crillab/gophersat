@@ -137,7 +137,11 @@ func (s *Solver) resetOptimPolarity() {
 func (s *Solver) OutputModel() {
 	if s.status == Sat || s.lastModel != nil {
 		fmt.Printf("SATISFIABLE\n")
-		for i, val := range s.model {
+		model := s.model
+		if s.lastModel != nil {
+			model = s.lastModel
+		}
+		for i, val := range model {
 			if val < 0 {
 				fmt.Printf("%d ", -i-1)
 			} else {
