@@ -218,7 +218,7 @@ func ParseCNF(f io.Reader) (*Problem, error) {
 			continue
 		}
 		if line[0] == 'p' {
-			fields := strings.Split(line, " ")
+			fields := strings.Fields(line)
 			if len(fields) < 4 {
 				return nil, fmt.Errorf("invalid syntax %q in CNF file", line)
 			}
