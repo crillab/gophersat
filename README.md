@@ -9,11 +9,21 @@ This is Gophersat, a SAT and pseudo-boolean solver written purely in Go.
 Gophersat was developed by the [CRIL (Centre de Recherche en Informatique
 de Lens)](http://www.cril.fr) at the Artois University & CNRS. It is
 released under the MIT license. Gophersat is rather efficient, i.e on
-typical SAT benchmarks it runs about 1 to 5 times slower than top-level
+typical SAT benchmarks it runs about 5 to 20 times slower than top-level
 solvers (namely, [glucose](http://www.labri.fr/perso/lsimon/glucose/) or
 [minisat](http://minisat.se/)) from which it is strongly inspired.
-It can also solve pseudo-boolean decision problems, although this is still
-at an early development stage.
+It can also solve pseudo-boolean decision and optimization problems.
+
+## Version 1.0
+
+Gophersat API is now considered stable, meaning that the API is guaranteed to stay backwards-compatible
+until a major version shift. In other words, if your program works with version 1.0 of gophersat, it
+will still work with version 1.1 or above, but not necessarily with versions above 2.0.
+
+Note that, by "still working", we only mean "will compile and produce the same output", not "will have the
+same performance memory-wise or time-wise". This is an important distinction: during minor version upgrades,
+new heuristics or data types can be introduced, meaning some given problems could be solved faster or slower
+than previously.
 
 ## How do I install it?
 
@@ -50,8 +60,6 @@ For the moment, it can only solve the so-called DEC-SMALLINT-LIN problems and OP
 i.e decision problems (is there a solution or not), for linear constraints (a sum of weighted literals)
 on small integers (n < 2^30), or optimization problems (what is the best solution, minimizing a given cost function),
 for linear constraints on small integers.
-Please also note that PB optimization is currently under heavy development and, although correct, will probably
-not meet your performance requirements yet.
 
 ## What is a SAT solver? What is the SAT problem?
 SAT, which stands for *Boolean Satisfiability Problem*, is the canonical
@@ -84,7 +92,7 @@ Pseudo-boolean problems are, in a way, a generalization of SAT problems: any pro
 can be written as a single pseudo-boolean constraint, but representing a pseudo-boolean constraint
 can require an exponential number of propositional clauses.
 
-A pseudo-boolean expression is an expression like:
+A (linear) pseudo-boolean expression is an expression like:
 
     w1 l1 + w2 x2 + ... + wn xn ≥ y
 
@@ -117,8 +125,11 @@ i.e a sum of terms that must be minimized.
 Rather than just trying to find a model that satisfies the given constraints,
 gophersat will then try to find a model that is guaranteed to both satisfy the constraints
 and minimize the cost function.
-Please note that optimization is at an early stage of development.
-Performance needs to be improved.
+
+During the search for that optimal solutions, gophersat will provide suboptimal solutions
+(i.e solutions that solve all the constraints but are not yet guaranteed to be optimal)
+as soon as it finds them, so the user can either get a suboptimal solution in a given time limit,
+or wait longer for the guaranteed optimal solution.
 
 ## Is Gophersat fast? Why use it at all?
 Yes and no. It is much faster than naïve implementations, fast enough to be used on real-world problems, but slower than
@@ -138,7 +149,7 @@ program, Gophersat is probably not the best option.
 
 Gophersat is also providing cool features not always available with other solvers
 (a user-friendly input format, for instance), so it can be used as a tool for
-describing and solving NP-hard problems that can easily be reduced to a SAT instance.
+describing and solving NP-hard problems that can easily be reduced to a SAT/PB problem.
 
 ## Do I have to represent my SAT problem as CNF? Am I forced to use the unfriendly DIMACS format?
 No. The `bf` (for "boolean formula") package provides facilities to
@@ -161,4 +172,4 @@ For the moment, not very much. It does not
 propose incremental SAT solving, MUS extraction, UNSAT certification
 and the like. It does not even feature a preprocessor.
 
-But all those features might come later. Feel free to ask for features. 
+But all those features might come later. Feel free to ask for features.
