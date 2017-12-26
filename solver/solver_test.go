@@ -260,3 +260,15 @@ func BenchmarkVMPC(b *testing.B) {
 func BenchmarkACG(b *testing.B) {
 	runBench("testcnf/ACG-10-5p0.cnf", b)
 }
+
+func BenchmarkGSS(b *testing.B) {
+	runBench("testcnf/gss-13-s100.cnf", b)
+}
+
+func BenchmarkGUS(b *testing.B) {
+	runBench("testcnf/gus-md5-04.cnf", b)
+}
+
+func BenchmarkHSAT(b *testing.B) {
+	runBench("testcnf/hsat_vc11803.cnf", b)
+}
