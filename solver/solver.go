@@ -136,7 +136,7 @@ func (s *Solver) resetOptimPolarity() {
 // OutputModel outputs the model for the problem on stdout.
 func (s *Solver) OutputModel() {
 	if s.status == Sat || s.lastModel != nil {
-		fmt.Printf("SATISFIABLE\n")
+		fmt.Printf("s SATISFIABLE\nv ")
 		model := s.model
 		if s.lastModel != nil {
 			model = s.lastModel
@@ -150,9 +150,9 @@ func (s *Solver) OutputModel() {
 		}
 		fmt.Printf("\n")
 	} else if s.status == Unsat {
-		fmt.Printf("UNSATISFIABLE\n")
+		fmt.Printf("s UNSATISFIABLE\n")
 	} else {
-		fmt.Printf("INDETERMINATE\n")
+		fmt.Printf("s INDETERMINATE\n")
 	}
 }
 
@@ -710,7 +710,6 @@ func (s *Solver) Minimize() int {
 		copy(weights2, weights)
 		s.AppendClause(NewPBClause(lits2, weights2, maxCost-cost+1))
 		s.rebuildOrderHeap()
-		//fmt.Println(s.PBString())
 		status = s.Solve()
 	}
 	return cost

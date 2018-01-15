@@ -28,6 +28,7 @@ func main() {
 		os.Exit(1)
 	}
 	path := flag.Args()[0]
+	fmt.Printf("c solving %s\n", path)
 	if strings.HasSuffix(path, ".bf") {
 		if err := parseAndSolveBF(path); err != nil {
 			fmt.Fprintf(os.Stderr, "could not parse formula: %v\n", err)
