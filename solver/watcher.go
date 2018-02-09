@@ -300,13 +300,14 @@ func (s *Solver) simplifyCardClause(clause *Clause, lvl decLevel) bool {
 	nbTrue := 0
 	nbFalse := 0
 	nbUnb := 0
-	for i := 0; i < length; i++ {
+	done := false
+	for i := 0; i < length && !done; i++ {
 		lit := clause.Get(i)
 		switch s.litStatus(lit) {
 		case Indet:
 			nbUnb++
 			if nbUnb+nbTrue > card {
-				break
+				done = true
 			}
 		case Sat:
 			nbTrue++
@@ -314,7 +315,7 @@ func (s *Solver) simplifyCardClause(clause *Clause, lvl decLevel) bool {
 				return true
 			}
 			if nbUnb+nbTrue > card {
-				break
+				done = true
 			}
 		case Unsat:
 			nbFalse++
