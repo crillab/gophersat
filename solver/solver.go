@@ -133,6 +133,11 @@ func (s *Solver) resetOptimPolarity() {
 	}
 }
 
+// Optim returns true iff the underlying problem is an optimization problem (rather than a satisfaction one).
+func (s *Solver) Optim() bool {
+	return s.minLits != nil
+}
+
 // OutputModel outputs the model for the problem on stdout.
 func (s *Solver) OutputModel() {
 	if s.status == Sat || s.lastModel != nil {

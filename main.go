@@ -65,7 +65,11 @@ func solve(pb *solver.Problem, verbose bool) {
 		fmt.Printf("c | Number of variables : %9d                                                    |\n", pb.NbVars)
 		s.Verbose = true
 	}
-	s.Minimize()
+	if s.Optim() {
+		s.Minimize()
+	} else {
+		s.Solve()
+	}
 	if verbose {
 		fmt.Printf("c nb conflicts: %d\nc nb restarts: %d\nc nb decisions: %d\n", s.Stats.NbConflicts, s.Stats.NbRestarts, s.Stats.NbDecisions)
 		fmt.Printf("c nb unit learned: %d\nc nb binary learned: %d\nc nb learned: %d\n", s.Stats.NbUnitLearned, s.Stats.NbBinaryLearned, s.Stats.NbLearned)
@@ -116,34 +120,6 @@ func parse(path string) (pb *solver.Problem, err error) {
 		return pb, nil
 	}
 	return nil, fmt.Errorf("invalid file format for %q", path)
-}
-
-func minimize(pb *solver.Problem) error {
-	fmt.Printf("c ======================================================================================\n")
-	fmt.Printf("c | Number of clauses   : %9d                                                    |\n", len(pb.Clauses))
-	fmt.Printf("c | Number of variables : %9d                                                    |\n", pb.NbVars)
-	s := solver.New(pb)
-	s.Verbose = true
-	s.Minimize()
-	fmt.Printf("c nb conflicts: %d\nc nb restarts: %d\nc nb decisions: %d\n", s.Stats.NbConflicts, s.Stats.NbRestarts, s.Stats.NbDecisions)
-	fmt.Printf("c nb unit learned: %d\nc nb binary learned: %d\nc nb learned: %d\n", s.Stats.NbUnitLearned, s.Stats.NbBinaryLearned, s.Stats.NbLearned)
-	fmt.Printf("c nb clauses deleted: %d\n", s.Stats.NbDeleted)
-	s.OutputModel()
-	return nil
-}
-
-func solveCNF(pb *solver.Problem) error {
-	fmt.Printf("c ======================================================================================\n")
-	fmt.Printf("c | Number of clauses   : %9d                                                    |\n", len(pb.Clauses))
-	fmt.Printf("c | Number of variables : %9d                                                    |\n", pb.NbVars)
-	s := solver.New(pb)
-	s.Verbose = true
-	s.Solve()
-	fmt.Printf("c nb conflicts: %d\nc nb restarts: %d\nc nb decisions: %d\n", s.Stats.NbConflicts, s.Stats.NbRestarts, s.Stats.NbDecisions)
-	fmt.Printf("c nb unit learned: %d\nc nb binary learned: %d\nc nb learned: %d\n", s.Stats.NbUnitLearned, s.Stats.NbBinaryLearned, s.Stats.NbLearned)
-	fmt.Printf("c nb clauses deleted: %d\n", s.Stats.NbDeleted)
-	s.OutputModel()
-	return nil
 }
 
 func solveBF(f bf.Formula) {
