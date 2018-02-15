@@ -466,6 +466,52 @@ func (s *Solver) Solve() Status {
 	return s.status
 }
 
+// Enumerate returns the total number of models for the given problems.
+// if "models" is non-nil, it will write models on it as soon as it discovers them.
+// models will be closed at the end of the method.
+func (s *Solver) Enumerate(models chan ModelMap, stop chan struct{}) int {
+	if models != nil {
+		defer close(models)
+	}
+	s.lastModel = make(Model, len(s.model))
+	nb := 0
+	lit := s.chooseLit()
+	lvl := decLevel(2)
+	for s.status != Unsat {
+		for s.status == Indet {
+			s.search()
+			if s.status == Indet {
+				s.Stats.NbRestarts++
+			}
+		}
+		if s.status == Sat {
+			nb++
+			if models != nil {
+				copy(s.lastModel, s.model)
+				models <- s.ModelMap()
+			}
+			s.status = Indet
+			lits := s.decisionLits()
+			switch len(lits) {
+			case 0:
+				s.status = Unsat
+			case 1:
+				s.propagateUnits(lits)
+			default:
+				c := NewClause(lits)
+				s.appendClause(c)
+				lit = lits[len(lits)-1]
+				v := lit.Var()
+				lvl = abs(s.model[v]) - 1
+				s.cleanupBindings(lvl)
+				s.reason[v] = c // Must do it here because it won't be made by propagateAndSearch
+				s.propagateAndSearch(lit, lvl)
+			}
+		}
+	}
+	return nb
+}
+
 // CountModels returns the total number of models for the given problem.
 func (s *Solver) CountModels() int {
 	var end chan struct{}
@@ -656,6 +702,90 @@ func (s *Solver) Model() []bool {
 	res := make([]bool, s.nbVars)
 	for i, lvl := range s.lastModel {
 		res[i] = lvl > 0
+	}
+	return res
+}
+
+// ModelMap returns a ModelMap that associates, to each variable, its binding.
+// If s's status is not Sat, the method will panic.
+func (s *Solver) ModelMap() ModelMap {
+	if s.lastModel == nil {
+		panic("cannot call ModelMap() from a non-Sat solver")
+	}
+	res := make(ModelMap, s.nbVars)
+	for i, lvl := range s.lastModel {
+		res[i+1] = lvl > 0
+	}
+	return res
+}
+
+// Optimal returns the optimal solution, if any.
+// If "models" is non-nil, all intermediary solutions will be written to it.
+// In any case, models will be closed at the end of the call.
+func (s *Solver) Optimal(models chan Result, stop chan struct{}) (res Result) {
+	if models != nil {
+		defer close(models)
+	}
+	status := s.Solve()
+	if status == Unsat { // Problem cannot be satisfied at all
+		res.Status = Unsat
+		return res
+	}
+	if s.minLits == nil { // No optimization clause: this is a decision problem, solution is optimal
+		s.lastModel = make(Model, len(s.model))
+		copy(s.lastModel, s.model)
+		return Result{
+			Status: Sat,
+			Model:  s.ModelMap(),
+			Weight: 0,
+		}
+	}
+	maxCost := 0
+	if s.minWeights == nil {
+		maxCost = len(s.minLits)
+	} else {
+		for _, w := range s.minWeights {
+			maxCost += w
+		}
+	}
+	s.asumptions = make([]Lit, len(s.minLits))
+	for i, lit := range s.minLits {
+		s.asumptions[i] = lit.Negation()
+	}
+	weights := make([]int, len(s.minWeights))
+	copy(weights, s.minWeights)
+	sort.Sort(wLits{lits: s.asumptions, weights: weights})
+	s.lastModel = make(Model, len(s.model))
+	var cost int
+	for status == Sat {
+		copy(s.lastModel, s.model) // Save this model: it might be the last one
+		cost = 0
+		for i, lit := range s.minLits {
+			if (s.model[lit.Var()] > 0) == lit.IsPositive() {
+				if s.minWeights == nil {
+					cost++
+				} else {
+					cost += s.minWeights[i]
+				}
+			}
+		}
+		res = Result{
+			Status: Sat,
+			Model:  s.ModelMap(),
+			Weight: cost,
+		}
+		models <- res
+		if cost == 0 {
+			break
+		}
+		// Add a constraint incrementing current best cost
+		lits2 := make([]Lit, len(s.minLits))
+		weights2 := make([]int, len(s.minWeights))
+		copy(lits2, s.asumptions)
+		copy(weights2, weights)
+		s.AppendClause(NewPBClause(lits2, weights2, maxCost-cost+1))
+		s.rebuildOrderHeap()
+		status = s.Solve()
 	}
 	return res
 }

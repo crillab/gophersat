@@ -214,6 +214,34 @@ func TestCountModel(t *testing.T) {
 	}
 }
 
+func TestEnumerate(t *testing.T) {
+	clauses := []CardConstr{
+		AtLeast1(1, 2, 3),
+		AtLeast1(-1, -2, -3),
+		AtLeast1(2, 3, 4),
+		AtLeast1(2, 3, 5),
+		AtLeast1(3, 4, 5),
+		AtLeast1(2, 4, 5),
+	}
+	pb := ParseCardConstrs(clauses)
+	s := New(pb)
+	if nb := s.Enumerate(nil, nil); nb != 17 {
+		t.Errorf("Invalid #models returned: expected %d, got %d", 17, nb)
+	}
+	models := make(chan ModelMap)
+	pb = ParseCardConstrs(clauses)
+	s = New(pb)
+	go s.Enumerate(models, nil)
+	nb := 0
+	for range models {
+		nb++
+	}
+	if nb != 17 {
+		t.Errorf("Invalid #models on chan models: expected %d, got %d", 17, nb)
+	}
+
+}
+
 func BenchmarkCountModels(b *testing.B) {
 	clauses := []CardConstr{
 		AtLeast1(1, 2, 3),
