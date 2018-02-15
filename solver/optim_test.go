@@ -13,7 +13,7 @@ type optimTest struct {
 	cost int
 }
 
-func runOptimTest(test optimTest, t *testing.T) {
+func runMinTest(test optimTest, t *testing.T) {
 	f, err := os.Open(test.path)
 	if err != nil {
 		t.Error(err.Error())
@@ -36,6 +36,42 @@ func runOptimTest(test optimTest, t *testing.T) {
 	}
 }
 
+func runOptimTest(test optimTest, results chan Result, t *testing.T) {
+	f, err := os.Open(test.path)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	defer func() { _ = f.Close() }()
+	var pb *Problem
+	if strings.HasSuffix(test.path, "cnf") {
+		pb, err = ParseCNF(f)
+	} else {
+		pb, err = ParseOPB(f)
+	}
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	s := New(pb)
+	cost := -1
+	if results == nil {
+		res := s.Optimal(nil, nil)
+		cost = res.Weight
+		if res.Status != Sat {
+			cost = -1
+		}
+	} else {
+		go s.Optimal(results, nil)
+		for res := range results {
+			cost = res.Weight
+		}
+	}
+	if cost != test.cost {
+		t.Errorf("Invalid result while minimizing %q: expected cost %d, got %d", test.path, test.cost, cost)
+	}
+}
+
 var optimTests = []optimTest{
 	{"testcnf/100.cnf", 0},
 	{"testcnf/125.cnf", -1},
@@ -48,7 +84,14 @@ var optimTests = []optimTest{
 
 func TestMinimize(t *testing.T) {
 	for _, test := range optimTests {
-		runOptimTest(test, t)
+		runMinTest(test, t)
+	}
+}
+
+func TestOptimal(t *testing.T) {
+	for _, test := range optimTests {
+		runOptimTest(test, nil, t)
+		runOptimTest(test, make(chan Result), t)
 	}
 }
 

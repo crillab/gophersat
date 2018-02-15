@@ -720,25 +720,32 @@ func (s *Solver) ModelMap() ModelMap {
 }
 
 // Optimal returns the optimal solution, if any.
-// If "models" is non-nil, all intermediary solutions will be written to it.
-// In any case, models will be closed at the end of the call.
-func (s *Solver) Optimal(models chan Result, stop chan struct{}) (res Result) {
-	if models != nil {
-		defer close(models)
+// If results is non-nil, all solutions will be written to it.
+// In any case, results will be closed at the end of the call.
+func (s *Solver) Optimal(results chan Result, stop chan struct{}) (res Result) {
+	if results != nil {
+		defer close(results)
 	}
 	status := s.Solve()
 	if status == Unsat { // Problem cannot be satisfied at all
 		res.Status = Unsat
+		if results != nil {
+			results <- res
+		}
 		return res
 	}
 	if s.minLits == nil { // No optimization clause: this is a decision problem, solution is optimal
 		s.lastModel = make(Model, len(s.model))
 		copy(s.lastModel, s.model)
-		return Result{
+		res := Result{
 			Status: Sat,
 			Model:  s.ModelMap(),
 			Weight: 0,
 		}
+		if results != nil {
+			results <- res
+		}
+		return res
 	}
 	maxCost := 0
 	if s.minWeights == nil {
@@ -774,7 +781,9 @@ func (s *Solver) Optimal(models chan Result, stop chan struct{}) (res Result) {
 			Model:  s.ModelMap(),
 			Weight: cost,
 		}
-		models <- res
+		if results != nil {
+			results <- res
+		}
 		if cost == 0 {
 			break
 		}

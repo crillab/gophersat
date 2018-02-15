@@ -35,13 +35,13 @@ func main() {
 			os.Exit(1)
 		}
 	} else {
-		if pb, err := parse(flag.Args()[0]); err != nil {
+		if pb, printFn, err := parse(flag.Args()[0]); err != nil {
 			fmt.Fprintf(os.Stderr, "could not parse problem: %v\n", err)
 			os.Exit(1)
 		} else if count {
 			countModels(pb, verbose)
 		} else {
-			solve(pb, verbose)
+			solve(pb, verbose, printFn)
 		}
 	}
 }
@@ -64,10 +64,9 @@ func countModels(pb *solver.Problem, verbose bool) {
 		}
 	}
 	fmt.Println(nb)
-	//fmt.Println(s.CountModels())
 }
 
-func solve(pb *solver.Problem, verbose bool) {
+func solve(pb *solver.Problem, verbose bool, printFn func(chan solver.Result)) {
 	s := solver.New(pb)
 	if verbose {
 		fmt.Printf("c ======================================================================================\n")
@@ -75,17 +74,14 @@ func solve(pb *solver.Problem, verbose bool) {
 		fmt.Printf("c | Number of variables : %9d                                                    |\n", pb.NbVars)
 		s.Verbose = true
 	}
-	if s.Optim() {
-		s.Minimize()
-	} else {
-		s.Solve()
-	}
+	results := make(chan solver.Result)
+	go s.Optimal(results, nil)
+	printFn(results)
 	if verbose {
 		fmt.Printf("c nb conflicts: %d\nc nb restarts: %d\nc nb decisions: %d\n", s.Stats.NbConflicts, s.Stats.NbRestarts, s.Stats.NbDecisions)
 		fmt.Printf("c nb unit learned: %d\nc nb binary learned: %d\nc nb learned: %d\n", s.Stats.NbUnitLearned, s.Stats.NbBinaryLearned, s.Stats.NbLearned)
 		fmt.Printf("c nb clauses deleted: %d\n", s.Stats.NbDeleted)
 	}
-	s.OutputModel()
 }
 
 func parseAndSolveBF(path string) error {
@@ -102,34 +98,34 @@ func parseAndSolveBF(path string) error {
 	return nil
 }
 
-func parse(path string) (pb *solver.Problem, err error) {
+func parse(path string) (pb *solver.Problem, printFn func(chan solver.Result), err error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("could not open %q: %v", path, err)
+		return nil, nil, fmt.Errorf("could not open %q: %v", path, err)
 	}
 	defer f.Close()
 	if strings.HasSuffix(path, ".bf") {
 		_, err := bf.Parse(f)
 		if err != nil {
-			return nil, fmt.Errorf("could not parse %q: %v", path, err)
+			return nil, nil, fmt.Errorf("could not parse %q: %v", path, err)
 		}
 		panic("not yet implemented")
 	}
 	if strings.HasSuffix(path, ".cnf") {
 		pb, err := solver.ParseCNF(f)
 		if err != nil {
-			return nil, fmt.Errorf("could not parse DIMACS file %q: %v", path, err)
+			return nil, nil, fmt.Errorf("could not parse DIMACS file %q: %v", path, err)
 		}
-		return pb, nil
+		return pb, printDecisionResults, nil
 	}
 	if strings.HasSuffix(path, ".opb") {
 		pb, err := solver.ParseOPB(f)
 		if err != nil {
-			return nil, fmt.Errorf("could not parse OPB file %q: %v", path, err)
+			return nil, nil, fmt.Errorf("could not parse OPB file %q: %v", path, err)
 		}
-		return pb, nil
+		return pb, printOptimizationResults, nil
 	}
-	return nil, fmt.Errorf("invalid file format for %q", path)
+	return nil, nil, fmt.Errorf("invalid file format for %q", path)
 }
 
 func solveBF(f bf.Formula) {
@@ -145,5 +141,58 @@ func solveBF(f bf.Formula) {
 		for _, k := range keys {
 			fmt.Printf("%s: %t\n", k, model[k])
 		}
+	}
+}
+
+// prints the result to a SAT decision problem in the competition format.
+func printDecisionResults(results chan solver.Result) {
+	var res solver.Result
+	for res = range results {
+	}
+	switch res.Status {
+	case solver.Unsat:
+		fmt.Println("s UNSATISFIABLE")
+	case solver.Sat:
+		fmt.Println("s SATISFIABLE")
+		fmt.Printf("v ")
+		for i := 1; i <= len(res.Model); i++ {
+			val := i
+			if !res.Model[i] {
+				val = -i
+			}
+			fmt.Printf("%d ", val)
+		}
+		fmt.Println("0")
+	default:
+		fmt.Println("s UNKNOWN")
+	}
+}
+
+// prints the result to a PB optimization problem in the competition format.
+func printOptimizationResults(results chan solver.Result) {
+	var res solver.Result
+	for res = range results {
+		if res.Status == solver.Sat {
+			fmt.Printf("o %d\n", res.Weight)
+		}
+	}
+	switch res.Status {
+	case solver.Unsat:
+		fmt.Println("s UNSATISFIABLE")
+	case solver.Sat:
+		fmt.Println("s OPTIMUM FOUND")
+		fmt.Printf("v ")
+		for i := 1; i <= len(res.Model); i++ {
+			var val string
+			if !res.Model[i] {
+				val = fmt.Sprintf("-x%d", i)
+			} else {
+				val = fmt.Sprintf("x%d", i)
+			}
+			fmt.Printf("%s ", val)
+		}
+		fmt.Println()
+	default:
+		fmt.Println("s UNKNOWN")
 	}
 }
