@@ -54,7 +54,17 @@ func countModels(pb *solver.Problem, verbose bool) {
 		fmt.Printf("c | Number of variables : %9d                                                    |\n", pb.NbVars)
 		s.Verbose = true
 	}
-	fmt.Println(s.CountModels())
+	models := make(chan solver.ModelMap)
+	go s.Enumerate(models, nil)
+	nb := 0
+	for range models {
+		nb++
+		if verbose {
+			fmt.Printf("c %d models found\n", nb)
+		}
+	}
+	fmt.Println(nb)
+	//fmt.Println(s.CountModels())
 }
 
 func solve(pb *solver.Problem, verbose bool) {
