@@ -21,16 +21,15 @@ type Result struct {
 // (MAXSAT, MUS extraction, etc.) can implement it, too.
 type Interface interface {
 	// Optimal solves or optimizes the problem and returns the best result.
-	// If the models chan is non nil, it will write the associated model each time one is found.
+	// If the results chan is non nil, it will write the associated model each time one is found.
 	// It will stop as soon as a model of cost 0 is found, or the problem is not satisfiable anymore.
 	// The last satisfying model, if any, will be returned with the Sat status.
 	// If no model at all could be found, the Unsat status will be returned.
 	// If the solver prematurely stopped, the Indet status will be returned.
 	// If data is sent to stop, the method may stop prematurely.
-	// In any case, models will be closed before the function returns.
+	// In any case, results will be closed before the function returns.
 	// NOTE: data sent on stop may be ignored by an implementation.
-	// Also note that all models sent will have the Sat Status.
-	Optimal(models chan Result, stop chan struct{}) Result
+	Optimal(results chan Result, stop chan struct{}) Result
 	// Enumerate returns the number of models for the problem.
 	// If the models chan is non nil, it will write the associated model each time one is found.
 	// If data is sent to stop, the method may stop prematurely.
