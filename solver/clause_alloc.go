@@ -1,8 +1,6 @@
 package solver
 
-// This file deals with an attempt for an efficient binary/ternary clause allocator/deallocator.
-// Since lots of binary/ternary clauses are created then (sometimes) destroyed, we allocate
-// and reuse lots of them here, to relax the GC's work.
+// This file deals with an attempt for an efficient clause allocator/deallocator, to relax GC's work.
 
 const (
 	nbLitsAlloc = 5000000 // How many literals are initialized at first?
