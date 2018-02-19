@@ -65,10 +65,13 @@ func runOptimTest(test optimTest, results chan Result, t *testing.T) {
 		go s.Optimal(results, nil)
 		for res := range results {
 			cost = res.Weight
+			if res.Status != Sat {
+				cost = -1
+			}
 		}
 	}
 	if cost != test.cost {
-		t.Errorf("Invalid result while minimizing %q: expected cost %d, got %d", test.path, test.cost, cost)
+		t.Errorf("Invalid result while minimizing %q with chan results = %v: expected cost %d, got %d", test.path, results, test.cost, cost)
 	}
 }
 
