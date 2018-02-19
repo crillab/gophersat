@@ -12,10 +12,7 @@ const (
 	incrNbMaxClauses  = 300   // By how much # of learned clauses is incremented at each conflict.
 	incrPostponeNbMax = 1000  // By how much # of learned is increased when lots of good clauses are currently learned.
 	clauseDecay       = 0.999 // By how much clauses bumping decays over time.
-)
-
-var (
-	varDecay = 0.8 // On each var decay, how much the varInc should be decayed
+	defaultVarDecay   = 0.8   // On each var decay, how much the varInc should be decayed at startup
 )
 
 // Stats are statistics about the resolution of the problem.
@@ -73,11 +70,12 @@ type Solver struct {
 	varInc          float64 // On each var bump, how big the increment should be
 	clauseInc       float32 // On each var bump, how big the increment should be
 	lbdStats        lbdStats
-	Stats           Stats // Statistics about the solving process.
-	minLits         []Lit // Lits to minimize if the problem was an optimization problem.
-	minWeights      []int // Weight of each lit to minimize if the problem was an optimization problem.
-	asumptions      []Lit // Literals that are, ideally, true. Useful when trying to minimize a function.
-	localNbRestarts int   // How many restarts since Solve() was called?
+	Stats           Stats   // Statistics about the solving process.
+	minLits         []Lit   // Lits to minimize if the problem was an optimization problem.
+	minWeights      []int   // Weight of each lit to minimize if the problem was an optimization problem.
+	asumptions      []Lit   // Literals that are, ideally, true. Useful when trying to minimize a function.
+	localNbRestarts int     // How many restarts since Solve() was called?
+	varDecay        float64 // On each var decay, how much the varInc should be decayed
 }
 
 // New makes a solver, given a number of variables and a set of clauses.
@@ -97,6 +95,7 @@ func New(problem *Problem) *Solver {
 		clauseInc:  1.0,
 		minLits:    problem.minLits,
 		minWeights: problem.minWeights,
+		varDecay:   defaultVarDecay,
 	}
 	s.resetOptimPolarity()
 	s.initOptimActivity()
@@ -175,7 +174,7 @@ func (s *Solver) litStatus(l Lit) Status {
 }
 
 func (s *Solver) varDecayActivity() {
-	s.varInc *= 1 / varDecay
+	s.varInc *= 1 / s.varDecay
 }
 
 func (s *Solver) varBumpActivity(v Var) {
@@ -368,8 +367,8 @@ func (s *Solver) propagateAndSearch(lit Lit, lvl decLevel) Status {
 			lit = s.chooseLit()
 		} else { // Deal with conflict
 			s.Stats.NbConflicts++
-			if s.Stats.NbConflicts%5000 == 0 && varDecay < 0.95 {
-				varDecay += 0.01
+			if s.Stats.NbConflicts%5000 == 0 && s.varDecay < 0.95 {
+				s.varDecay += 0.01
 			}
 			s.lbdStats.addConflict(len(s.trail))
 			learnt, unit := s.learnClause(conflict, lvl)
