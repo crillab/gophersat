@@ -1,9 +1,6 @@
 package solver
 
-import (
-	"fmt"
-	"sort"
-)
+import "sort"
 
 type watcher struct {
 	other  Lit // Another lit from the clause
@@ -15,7 +12,8 @@ type watcherList struct {
 	nbMax     int         // Max # of learned clauses at current moment
 	idxReduce int         // # of calls to reduce + 1
 	wlistBin  [][]watcher // For each literal, a list of binary clauses where its negation appears
-	wlist     [][]*Clause // For each literal, a list of non-binary clauses where its negation appears at a position <= (cardinality + 1)
+	wlist     [][]watcher // For each literal, a list of non-binary clauses where its negation appears atposition 1 or 2
+	wlistPb   [][]*Clause // For each literal a list of PB or cardinality constraints.
 	pbClauses []*Clause   // All the problem clauses.
 	learned   []*Clause
 }
@@ -29,7 +27,8 @@ func (s *Solver) initWatcherList(clauses []*Clause) {
 		nbMax:     nbMax,
 		idxReduce: 1,
 		wlistBin:  make([][]watcher, s.nbVars*2),
-		wlist:     make([][]*Clause, s.nbVars*2),
+		wlist:     make([][]watcher, s.nbVars*2),
+		wlistPb:   make([][]*Clause, s.nbVars*2),
 		pbClauses: newClauses,
 	}
 	for _, c := range clauses {
@@ -77,25 +76,30 @@ func (s *Solver) watchClause(c *Clause) {
 		neg1 := second.Negation()
 		s.wl.wlistBin[neg0] = append(s.wl.wlistBin[neg0], watcher{clause: c, other: second})
 		s.wl.wlistBin[neg1] = append(s.wl.wlistBin[neg1], watcher{clause: c, other: first})
-	} else {
-		if c.PseudoBoolean() {
-			w := 0
-			i := 0
-			for i < 2 || w <= c.Cardinality() {
-				lit := c.Get(i)
-				neg := lit.Negation()
-				s.wl.wlist[neg] = append(s.wl.wlist[neg], c)
-				c.watched[i] = true
-				w += c.Weight(i)
-				i++
-			}
-		} else {
-			for i := 0; i < c.Cardinality()+1; i++ {
-				lit := c.Get(i)
-				neg := lit.Negation()
-				s.wl.wlist[neg] = append(s.wl.wlist[neg], c)
-			}
+	} else if c.PseudoBoolean() {
+		w := 0
+		i := 0
+		for i < 2 || w <= c.Cardinality() {
+			lit := c.Get(i)
+			neg := lit.Negation()
+			s.wl.wlistPb[neg] = append(s.wl.wlistPb[neg], c)
+			c.watched[i] = true
+			w += c.Weight(i)
+			i++
 		}
+	} else if c.Cardinality() > 1 {
+		for i := 0; i < c.Cardinality()+1; i++ {
+			lit := c.Get(i)
+			neg := lit.Negation()
+			s.wl.wlistPb[neg] = append(s.wl.wlistPb[neg], c)
+		}
+	} else { // Regular, propositional clause
+		first := c.First()
+		second := c.Second()
+		neg0 := first.Negation()
+		neg1 := second.Negation()
+		s.wl.wlist[neg0] = append(s.wl.wlist[neg0], watcher{clause: c, other: second})
+		s.wl.wlist[neg1] = append(s.wl.wlist[neg1], watcher{clause: c, other: first})
 	}
 }
 
@@ -104,32 +108,13 @@ func (s *Solver) watchClause(c *Clause) {
 // that c is not a binary clause.
 // We also know for sure this is a propositional clause, since only those are learned.
 func (s *Solver) unwatchClause(c *Clause) {
-	for i := 0; i < 2; i++ { // 2, not Cardinality + 1: learned clauses always have Cardinality == 1.
+	for i := 0; i < 2; i++ {
 		neg := c.Get(i).Negation()
 		j := 0
 		length := len(s.wl.wlist[neg])
 		// We're looking for the index of the clause.
 		// This will panic if c is not in wlist[neg], but this shouldn't happen.
-		for s.wl.wlist[neg][j] != c {
-			j++
-		}
-		s.wl.wlist[neg][j] = s.wl.wlist[neg][length-1]
-		s.wl.wlist[neg] = s.wl.wlist[neg][:length-1]
-	}
-}
-
-func (s *Solver) tryUnwatchClause(c *Clause) {
-	for i := 0; i < 2; i++ {
-		lit := c.Get(i)
-		if s.model[lit.Var()] != 0 {
-			continue
-		}
-		neg := lit.Negation()
-		j := 0
-		length := len(s.wl.wlist[neg])
-		// We're looking for the index of the clause.
-		// This will panic if c is not in wlist[neg], but this shouldn't happen.
-		for s.wl.wlist[neg][j] != c {
+		for s.wl.wlist[neg][j].clause != c {
 			j++
 		}
 		s.wl.wlist[neg][j] = s.wl.wlist[neg][length-1]
@@ -206,15 +191,11 @@ func (s *Solver) unifyLiteral(lit Lit, lvl decLevel) *Clause {
 				return w.clause
 			}
 		}
-		for _, c := range s.wl.wlist[lit] {
-			if c.Cardinality() == 1 {
-				res, unit := s.simplifyClause(c)
-				if res == Unsat {
-					return c
-				} else if res == Unit {
-					s.propagateUnit(c, lvl, unit)
-				}
-			} else if c.PseudoBoolean() {
+		if confl := s.simplifyPropClauses(lit, lvl); confl != nil {
+			return confl
+		}
+		for _, c := range s.wl.wlistPb[lit] {
+			if c.PseudoBoolean() {
 				if !s.simplifyPseudoBool(c, lvl) {
 					return c
 				}
@@ -231,9 +212,6 @@ func (s *Solver) unifyLiteral(lit Lit, lvl decLevel) *Clause {
 }
 
 func (s *Solver) propagateUnit(c *Clause, lvl decLevel, unit Lit) {
-	if s.litStatus(unit) != Indet {
-		panic(fmt.Errorf("could not propagate %d at level %d: its binding is %d", unit.Int(), lvl, s.model[unit.Var()]))
-	}
 	v := unit.Var()
 	s.reason[v] = c
 	c.lock()
@@ -241,55 +219,50 @@ func (s *Solver) propagateUnit(c *Clause, lvl decLevel, unit Lit) {
 	s.trail = append(s.trail, unit)
 }
 
-// simplifyClause simplifies the given clause according to current binding.
-// It assumes the cardinality of the clause is 1.
-// It returns a new status, and a potential unit literal.
-func (s *Solver) simplifyClause(clause *Clause) (Status, Lit) {
-	var freeIdx int // Index of the first free lit found, if any
-	found := false
-	len := clause.Len()
-	for i := 0; i < len; i++ {
-		lit := clause.Get(i)
-		if status := s.litStatus(lit); status == Indet {
-			if found {
-				// 2 lits are known to be unbounded
-				switch freeIdx {
-				case 0: // c[0] is not removed, c[1] is
-					n1 := &s.wl.wlist[clause.Second().Negation()]
-					nf1 := &s.wl.wlist[clause.Get(i).Negation()]
-					clause.swap(i, 1)
-					*n1 = removeFrom(*n1, clause)
-					*nf1 = append(*nf1, clause)
-				case 1: // c[0] is removed, not c[1]
-					n0 := &s.wl.wlist[clause.First().Negation()]
-					nf1 := &s.wl.wlist[clause.Get(i).Negation()]
-					clause.swap(i, 0)
-					*n0 = removeFrom(*n0, clause)
-					*nf1 = append(*nf1, clause)
-				default: // Both c[0] & c[1] are removed
-					n0 := &s.wl.wlist[clause.First().Negation()]
-					n1 := &s.wl.wlist[clause.Second().Negation()]
-					nf0 := &s.wl.wlist[clause.Get(freeIdx).Negation()]
-					nf1 := &s.wl.wlist[clause.Get(i).Negation()]
-					clause.swap(freeIdx, 0)
-					clause.swap(i, 1)
-					*n0 = removeFrom(*n0, clause)
-					*n1 = removeFrom(*n1, clause)
-					*nf0 = append(*nf0, clause)
-					*nf1 = append(*nf1, clause)
+func (s *Solver) simplifyPropClauses(lit Lit, lvl decLevel) *Clause {
+	wl := s.wl.wlist[lit]
+	j := 0
+	for i, w := range wl {
+		if s.litStatus(w.other) == Sat { // blocking literal is SAT? Don't explore clause!
+			wl[j] = w
+			j++
+			continue
+		}
+		c := w.clause
+		// make sure c.Second() is lit
+		if c.First() == lit.Negation() {
+			c.swap(0, 1)
+		}
+		w2 := watcher{clause: c, other: c.First()}
+		firstStatus := s.litStatus(c.First())
+		if firstStatus == Sat { // Clause is already sat
+			wl[j] = w2
+			j++
+		} else {
+			found := false
+			for k := 2; k < c.Len(); k++ {
+				if litK := c.Get(k); s.litStatus(litK) != Unsat {
+					c.swap(1, k)
+					neg := litK.Negation()
+					s.wl.wlist[neg] = append(s.wl.wlist[neg], w2)
+					found = true
+					break
 				}
-				return Many, -1
 			}
-			freeIdx = i
-			found = true
-		} else if status == Sat {
-			return Sat, -1
+			if !found { // No free lit found: unit propagation or UNSAT
+				wl[j] = w2
+				j++
+				if firstStatus == Unsat {
+					copy(wl[j:], wl[i+1:]) // Copy remaining clauses
+					s.wl.wlist[lit] = wl[:len(wl)-((i+1)-j)]
+					return c
+				}
+				s.propagateUnit(c, lvl, c.First())
+			}
 		}
 	}
-	if !found {
-		return Unsat, -1
-	}
-	return Unit, clause.Get(freeIdx)
+	s.wl.wlist[lit] = wl[:j]
+	return nil
 }
 
 // simplifyCardClauses simplifies a clause of cardinality > 1, but with all weights = 1.
@@ -365,8 +338,8 @@ func (s *Solver) swapFalse(clause *Clause) {
 			j++
 			lit = clause.Get(j)
 		}
-		ni := &s.wl.wlist[clause.Get(i).Negation()]
-		nj := &s.wl.wlist[clause.Get(j).Negation()]
+		ni := &s.wl.wlistPb[clause.Get(i).Negation()]
+		nj := &s.wl.wlistPb[clause.Get(j).Negation()]
 		clause.swap(i, j)
 		*ni = removeFrom(*ni, clause)
 		*nj = append(*nj, clause)
@@ -444,14 +417,14 @@ func (s *Solver) updateWatchPB(clause *Clause) {
 		lit := clause.Get(i)
 		if s.litStatus(lit) == Unsat {
 			if clause.watched[i] {
-				ni := &s.wl.wlist[lit.Negation()]
+				ni := &s.wl.wlistPb[lit.Negation()]
 				*ni = removeFrom(*ni, clause)
 				clause.watched[i] = false
 			}
 		} else {
 			weightWatched += clause.Weight(i)
 			if !clause.watched[i] {
-				ni := &s.wl.wlist[lit.Negation()]
+				ni := &s.wl.wlistPb[lit.Negation()]
 				*ni = append(*ni, clause)
 				clause.watched[i] = true
 			}
@@ -461,7 +434,7 @@ func (s *Solver) updateWatchPB(clause *Clause) {
 	// If there are some more watched literals, they are now useless
 	for i := i; i < clause.Len(); i++ {
 		if clause.watched[i] {
-			ni := &s.wl.wlist[clause.Get(i).Negation()]
+			ni := &s.wl.wlistPb[clause.Get(i).Negation()]
 			*ni = removeFrom(*ni, clause)
 			clause.watched[i] = false
 		}
