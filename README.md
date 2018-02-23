@@ -14,9 +14,15 @@ solvers (namely, [glucose](http://www.labri.fr/perso/lsimon/glucose/) or
 [minisat](http://minisat.se/)) from which it is strongly inspired.
 It can also solve pseudo-boolean decision and optimization problems.
 
-## Version 1.0
+## Version 1.1
 
-Gophersat API is now considered stable, meaning that the API is guaranteed to stay backwards-compatible
+Gophersat's last stable version is version 1.1. It includes a new, more efficient core solver for pure SAT problems
+and a package for dealing with MAXSAT problems. It also includes a new API for optimization and model counting,
+where new models are written to channels as soon as they are found.
+
+### About version numbers in Gophersat
+
+Since version 1.0, Gophersat's API is considered stable, meaning that the API is guaranteed to stay backwards-compatible
 until a major version shift. In other words, if your program works with version 1.0 of gophersat, it
 will still work with version 1.1 or above, but not necessarily with versions above 2.0.
 
@@ -61,6 +67,17 @@ i.e decision problems (is there a solution or not), for linear constraints (a su
 on small integers (n < 2^30), or optimization problems (what is the best solution, minimizing a given cost function),
 for linear constraints on small integers.
 
+### Solving MAXSAT problems
+
+Thanks to the `maxsat`package, Gophersat can now solve MAXSAT problems.
+
+To solve a weighted MAXSAT problem, you can call gophersat with the following syntax:
+
+    gophersat --verbose file.wcnf
+
+where `--verbose` is an optional parameters that makes the solver display informations during the solving process.
+The file is supposed to be represented in (the WCNF format)[http://www.maxsat.udl.cat/08/index.php?disp=requirements].
+
 ## What is a SAT solver? What is the SAT problem?
 SAT, which stands for *Boolean Satisfiability Problem*, is the canonical
 NP-complete problem, i.e a problem for which there is no known solution that does
@@ -86,6 +103,12 @@ SAT](https://en.wikipedia.org/wiki/Boolean_satisfiability_problem).
 You can also find information about how to represent your own boolean
 formulas so they can be used by gophersat in the [tutorial "SAT for
 noobs"](examples/sat-for-noobs.md).
+
+## What is MAXSAT?
+
+MAXSAT is the optimization equivalent of the SAT decision problem. While a pure SAT solver will either return a
+model satisfying all clauses or UNSAT if no such model exists, a MAXSAT solver will return a model that satisfies
+as many clauses as possible.
 
 ## What about pseudo-boolean problems?
 Pseudo-boolean problems are, in a way, a generalization of SAT problems: any propositional clause
@@ -147,6 +170,10 @@ at the expense of solving time, Gophersat is good too. If you need to
 solve difficult problems and don't mind using cgo or use an external
 program, Gophersat is probably not the best option.
 
+There are a few other SAT solvers in Go, mainly go-sat and gini.
+Gini's performance is pretty much on par with Gophersat, although a little slower
+on average, according to tests we ran.
+
 Gophersat is also providing cool features not always available with other solvers
 (a user-friendly input format, for instance), so it can be used as a tool for
 describing and solving NP-hard problems that can easily be reduced to a SAT/PB problem.
@@ -155,11 +182,8 @@ describing and solving NP-hard problems that can easily be reduced to a SAT/PB p
 No. The `bf` (for "boolean formula") package provides facilities to
 translate any boolean formula to CNF.
 
-Helper packages for describing optimization problems (such as weighted partial MAXSAT)
-and pseudo-boolean problems will come soon. Stay tuned.
-
 ## Can I know how many solutions there are for a given formula?
-This is known as model counting, and yes, there is a function for that: solver.Solver.CountModels.
+This is known as model counting, and yes, there is a function for that: `solver.Solver.CountModels`.
 
 You can also count models from command line, with
 

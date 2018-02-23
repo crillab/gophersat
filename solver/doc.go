@@ -85,7 +85,7 @@ The solve() method then solves the problem and returns the corresponding status:
 
 If the status was Sat, the programmer can ask for a model, i.e an assignment that makes all the clauses of the problem true:
 
-    m, err := s.Model()
+    m := s.Model()
 
 For the above problem, the status will be Sat and the model can be {false, true, false, true, false, false}.
 

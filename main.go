@@ -54,7 +54,7 @@ func countModels(pb *solver.Problem, verbose bool) {
 		fmt.Printf("c | Number of variables : %9d                                                    |\n", pb.NbVars)
 		s.Verbose = true
 	}
-	models := make(chan solver.ModelMap)
+	models := make(chan []bool)
 	go s.Enumerate(models, nil)
 	nb := 0
 	for range models {
@@ -155,8 +155,8 @@ func printDecisionResults(results chan solver.Result) {
 	case solver.Sat:
 		fmt.Println("s SATISFIABLE")
 		fmt.Printf("v ")
-		for i := 1; i <= len(res.Model); i++ {
-			val := i
+		for i := range res.Model {
+			val := i + 1
 			if !res.Model[i] {
 				val = -i
 			}
