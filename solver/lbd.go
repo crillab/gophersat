@@ -58,7 +58,7 @@ func (l *lbdStats) addConflict(trailSz int) {
 
 }
 
-// add adds information about a recent learned clause's LBD.
+// addLbd adds information about a recent learned clause's LBD.
 // TODO: this is very close to addConflicts's code, this should probably be rewritten/merged.
 func (l *lbdStats) addLbd(lbd int) {
 	ld := &l.lbdData
