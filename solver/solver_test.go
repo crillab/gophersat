@@ -273,30 +273,34 @@ func BenchmarkSolverGss(b *testing.B) {
 	runBench("testcnf/gss-13-s100.cnf", b)
 }
 
-func BenchmarkXinetd(b *testing.B) {
+func BenchmarkSolverXinetd(b *testing.B) {
 	runBench("testcnf/xinetd_vc56703.cnf", b)
 }
 
-func BenchmarkSmulo(b *testing.B) {
+func BenchmarkSolverSmulo(b *testing.B) {
 	runBench("testcnf/smulo016.cnf", b)
 }
 
-func BenchmarkVMPC(b *testing.B) {
+func BenchmarkSolverVMPC(b *testing.B) {
 	runBench("testcnf/vmpc_24.cnf", b)
 }
 
-func BenchmarkACG(b *testing.B) {
+func BenchmarkSolverACG(b *testing.B) {
 	runBench("testcnf/ACG-10-5p0.cnf", b)
 }
 
-func BenchmarkGSS(b *testing.B) {
+func BenchmarkSolverGSS(b *testing.B) {
 	runBench("testcnf/gss-13-s100.cnf", b)
 }
 
-func BenchmarkGUS(b *testing.B) {
+func BenchmarkSolverGUS(b *testing.B) {
 	runBench("testcnf/gus-md5-04.cnf", b)
 }
 
-func BenchmarkHSAT(b *testing.B) {
+func BenchmarkSolverHSAT(b *testing.B) {
 	runBench("testcnf/hsat_vc11803.cnf", b)
+}
+
+func BenchmarkSolverEqAtree(b *testing.B) {
+	runBench("testcnf/eq.atree.braun.9.unsat.cnf", b)
 }
