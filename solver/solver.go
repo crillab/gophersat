@@ -311,42 +311,6 @@ func (s *Solver) satClause(c *Clause) bool {
 	return false
 }
 
-// rmSatClauses removes all clauses that are satisfied, ie clause
-// for which a literal is asserted at top-level.
-func (s *Solver) rmSatClauses() {
-	i := 0
-	j := len(s.wl.pbClauses) - 1
-	for i <= j {
-		if c := s.wl.pbClauses[i]; s.satClause(c) {
-			s.wl.pbClauses[i] = s.wl.pbClauses[j]
-			s.tryUnwatchClause(c)
-			if v := c.First().Var(); s.reason[v] == c {
-				s.reason[v] = nil // Is this really useful? Not sure it can happen
-			}
-			j--
-		} else {
-			i++
-		}
-	}
-	s.wl.pbClauses = s.wl.pbClauses[:j+1]
-	// TODO this code duplication is ugly.Must fFix it.
-	i = 0
-	j = len(s.wl.learned) - 1
-	for i <= j {
-		if c := s.wl.learned[i]; s.satClause(c) {
-			s.wl.learned[i] = s.wl.learned[j]
-			s.tryUnwatchClause(c)
-			if v := c.First().Var(); s.reason[v] == c {
-				s.reason[v] = nil // Is this really useful? Not sure it can happen
-			}
-			j--
-		} else {
-			i++
-		}
-	}
-	s.wl.learned = s.wl.learned[:j+1]
-}
-
 // propagate binds the given lit, propagates it and searches for a solution,
 // until it is found or a restart is needed.
 func (s *Solver) propagateAndSearch(lit Lit, lvl decLevel) Status {
