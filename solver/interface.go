@@ -1,9 +1,5 @@
 package solver
 
-// A ModelMap associates variable identifiers with a binding.
-// Typically, identifiers will be integer values, but other identifiers can be used in higher-level solvers, like human-readable strings, for instance.
-type ModelMap map[interface{}]bool
-
 // A Result is a status, either Sat, Unsat or Indet.
 // If the status is Sat, the Result also associates a ModelMap with an integer value.
 // This value is typically used in optimization processes.
@@ -11,7 +7,7 @@ type ModelMap map[interface{}]bool
 // By definition, in decision problems, the cost will always be 0.
 type Result struct {
 	Status Status
-	Model  ModelMap
+	Model  []bool
 	Weight int
 }
 
@@ -35,5 +31,5 @@ type Interface interface {
 	// If data is sent to stop, the method may stop prematurely.
 	// In any case, models will be closed before the function returns.
 	// NOTE: data sent on stop may be ignored by an implementation.
-	Enumerate(models chan ModelMap, stop chan struct{}) int
+	Enumerate(models chan []bool, stop chan struct{}) int
 }

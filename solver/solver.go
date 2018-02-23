@@ -432,7 +432,7 @@ func (s *Solver) Solve() Status {
 // Enumerate returns the total number of models for the given problems.
 // if "models" is non-nil, it will write models on it as soon as it discovers them.
 // models will be closed at the end of the method.
-func (s *Solver) Enumerate(models chan ModelMap, stop chan struct{}) int {
+func (s *Solver) Enumerate(models chan []bool, stop chan struct{}) int {
 	if models != nil {
 		defer close(models)
 	}
@@ -451,7 +451,7 @@ func (s *Solver) Enumerate(models chan ModelMap, stop chan struct{}) int {
 			nb++
 			if models != nil {
 				copy(s.lastModel, s.model)
-				models <- s.ModelMap()
+				models <- s.Model()
 			}
 			s.status = Indet
 			lits := s.decisionLits()
@@ -669,19 +669,6 @@ func (s *Solver) Model() []bool {
 	return res
 }
 
-// ModelMap returns a ModelMap that associates, to each variable, its binding.
-// If s's status is not Sat, the method will panic.
-func (s *Solver) ModelMap() ModelMap {
-	if s.lastModel == nil {
-		panic("cannot call ModelMap() from a non-Sat solver")
-	}
-	res := make(ModelMap, s.nbVars)
-	for i, lvl := range s.lastModel {
-		res[i+1] = lvl > 0
-	}
-	return res
-}
-
 // Optimal returns the optimal solution, if any.
 // If results is non-nil, all solutions will be written to it.
 // In any case, results will be closed at the end of the call.
@@ -702,7 +689,7 @@ func (s *Solver) Optimal(results chan Result, stop chan struct{}) (res Result) {
 		copy(s.lastModel, s.model)
 		res := Result{
 			Status: Sat,
-			Model:  s.ModelMap(),
+			Model:  s.Model(),
 			Weight: 0,
 		}
 		if results != nil {
@@ -741,7 +728,7 @@ func (s *Solver) Optimal(results chan Result, stop chan struct{}) (res Result) {
 		}
 		res = Result{
 			Status: Sat,
-			Model:  s.ModelMap(),
+			Model:  s.Model(),
 			Weight: cost,
 		}
 		if results != nil {

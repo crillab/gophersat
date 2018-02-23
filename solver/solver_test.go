@@ -228,7 +228,7 @@ func TestEnumerate(t *testing.T) {
 	if nb := s.Enumerate(nil, nil); nb != 17 {
 		t.Errorf("Invalid #models returned: expected %d, got %d", 17, nb)
 	}
-	models := make(chan ModelMap)
+	models := make(chan []bool)
 	pb = ParseCardConstrs(clauses)
 	s = New(pb)
 	go s.Enumerate(models, nil)
