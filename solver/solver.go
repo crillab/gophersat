@@ -97,6 +97,7 @@ func New(problem *Problem) *Solver {
 		minWeights: problem.minWeights,
 		varDecay:   defaultVarDecay,
 	}
+
 	s.resetOptimPolarity()
 	s.initOptimActivity()
 	s.initWatcherList(problem.Clauses)

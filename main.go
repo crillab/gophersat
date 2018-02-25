@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/crillab/gophersat/bf"
+	"github.com/crillab/gophersat/maxsat"
 	"github.com/crillab/gophersat/solver"
 )
 
@@ -23,7 +24,7 @@ func main() {
 	flag.BoolVar(&count, "count", false, "rather than solving the problem, counts the number of models it accepts")
 	flag.Parse()
 	if len(flag.Args()) != 1 {
-		fmt.Fprintf(os.Stderr, "Syntax : %s [options] (file.cnf|file.bf|file.opb)\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Syntax : %s [options] (file.cnf|file.wcnf|file.bf|file.opb)\n", os.Args[0])
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
@@ -32,6 +33,11 @@ func main() {
 	if strings.HasSuffix(path, ".bf") {
 		if err := parseAndSolveBF(path); err != nil {
 			fmt.Fprintf(os.Stderr, "could not parse formula: %v\n", err)
+			os.Exit(1)
+		}
+	} else if strings.HasSuffix(path, ".wcnf") {
+		if err := parseAndSolveWCNF(path, verbose); err != nil {
+			fmt.Fprintf(os.Stderr, "could not parse MAXSAT file %q: %v", path, err)
 			os.Exit(1)
 		}
 	} else {
@@ -82,6 +88,22 @@ func solve(pb *solver.Problem, verbose bool, printFn func(chan solver.Result)) {
 		fmt.Printf("c nb unit learned: %d\nc nb binary learned: %d\nc nb learned: %d\n", s.Stats.NbUnitLearned, s.Stats.NbBinaryLearned, s.Stats.NbLearned)
 		fmt.Printf("c nb clauses deleted: %d\n", s.Stats.NbDeleted)
 	}
+}
+
+func parseAndSolveWCNF(path string, verbose bool) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("could not open %q: %v", path, err)
+	}
+	defer f.Close()
+	s, err := maxsat.ParseWCNF(f)
+	if err != nil {
+		return fmt.Errorf("could not parse wcnf content: %v", err)
+	}
+	results := make(chan solver.Result)
+	go s.Optimal(results, nil)
+	printOptimizationResults(results)
+	return nil
 }
 
 func parseAndSolveBF(path string) error {
@@ -182,12 +204,12 @@ func printOptimizationResults(results chan solver.Result) {
 	case solver.Sat:
 		fmt.Println("s OPTIMUM FOUND")
 		fmt.Printf("v ")
-		for i := 1; i <= len(res.Model); i++ {
+		for i := 0; i < len(res.Model); i++ {
 			var val string
 			if !res.Model[i] {
-				val = fmt.Sprintf("-x%d", i)
+				val = fmt.Sprintf("-x%d", i+1)
 			} else {
-				val = fmt.Sprintf("x%d", i)
+				val = fmt.Sprintf("x%d", i+1)
 			}
 			fmt.Printf("%s ", val)
 		}

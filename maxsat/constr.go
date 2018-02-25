@@ -1,4 +1,4 @@
-package optim
+package maxsat
 
 // A Lit is a potentially-negated boolean variable.
 type Lit struct {

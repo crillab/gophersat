@@ -61,8 +61,10 @@ func (wl *watcherList) Len() int      { return len(wl.learned) }
 func (wl *watcherList) Swap(i, j int) { wl.learned[i], wl.learned[j] = wl.learned[j], wl.learned[i] }
 
 func (wl *watcherList) Less(i, j int) bool {
-	lbdI := wl.learned[i].lbd()
-	lbdJ := wl.learned[j].lbd()
+	ci := wl.learned[i]
+	cj := wl.learned[j]
+	lbdI := ci.lbd()
+	lbdJ := cj.lbd()
 	// Sort by lbd, break ties by activity
 	return lbdI > lbdJ || (lbdI == lbdJ && wl.learned[i].activity < wl.learned[j].activity)
 }

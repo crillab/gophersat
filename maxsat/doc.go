@@ -1,4 +1,4 @@
-// Package optim provides an optimization solver for SAT/PB.
+// Package maxsat provides an optimization solver for SAT/PB.
 // It allows the user to provide weighted partial MAXSAT problems or weighted pseudo-booleans problems.
 //
 // Definition
@@ -22,4 +22,4 @@
 // It will also give potentially suboptimal solutions as soon as it finds them.
 // So, the user can either get a good-enough solution after a given amount of time, or wait as long as needed
 // for the best possible solution.
-package optim
+package maxsat
