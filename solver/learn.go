@@ -52,7 +52,6 @@ func (s *Solver) learnClause(confl *Clause, lvl decLevel) (learned *Clause, unit
 	ptr := len(s.trail) - 1 // Pointer in propagation trail
 	for nbLvl > 1 {         // We will stop once we only have one lit from current level.
 		for !metLvl[s.trail[ptr].Var()] {
-			// for abs(s.model[s.trail[ptr].Var()]) != lvl {
 			if abs(s.model[s.trail[ptr].Var()]) == lvl { // This var was deduced afterwards and was not a reason for the conflict
 				met[s.trail[ptr].Var()] = true
 			}
