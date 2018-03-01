@@ -304,3 +304,7 @@ func BenchmarkSolverHSAT(b *testing.B) {
 func BenchmarkSolverEqAtree(b *testing.B) {
 	runBench("testcnf/eq.atree.braun.9.unsat.cnf", b)
 }
+
+func BenchmarkSolverManolPipe(b *testing.B) {
+	runBench("testcnf/manol-pipe-c9.cnf", b)
+}
