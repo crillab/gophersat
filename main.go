@@ -180,7 +180,7 @@ func printDecisionResults(results chan solver.Result) {
 		for i := range res.Model {
 			val := i + 1
 			if !res.Model[i] {
-				val = -i
+				val = -i - 1
 			}
 			fmt.Printf("%d ", val)
 		}
