@@ -213,7 +213,7 @@ func ParseCNF(f io.Reader) (*Problem, error) {
 			pb.Model = make([]decLevel, pb.NbVars)
 			pb.Clauses = make([]*Clause, 0, nbClauses)
 		} else {
-			var lits []Lit
+			lits := make([]Lit, 0, 3) // Make room for some lits to improve performance
 			for {
 				val, err := readInt(&b, r)
 				if err != nil {

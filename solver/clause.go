@@ -6,6 +6,12 @@ import (
 	"strings"
 )
 
+// data used in PB constraints.
+type pbData struct {
+	weights []int  // weight of each literal. If nil, weights are all 1.
+	watched []bool // indices of watched literals.
+}
+
 // A Clause is a list of Lit, associated with possible data (for learned clauses).
 type Clause struct {
 	lits []Lit
@@ -16,8 +22,7 @@ type Clause struct {
 	// NOTE: actual cardinality is value + 1, since this is the default value and go defaults to 0.
 	lbdValue uint32
 	activity float32
-	weights  []int  // For PB constraints, weight of each literal. If nil, weights are all 1.
-	watched  []bool // For PB constraints, indices of watched literals.
+	pbData   *pbData
 }
 
 const (
@@ -63,7 +68,14 @@ func NewPBClause(lits []Lit, weights []int, card int) *Clause {
 	}
 	wl := &weightedLits{lits: lits, weights: weights}
 	sort.Sort(wl)
-	return &Clause{lits: lits, lbdValue: uint32(card - 1), weights: weights, watched: make([]bool, len(lits))}
+	pbData := pbData{weights: weights, watched: make([]bool, len(lits))}
+	if pbData.weights == nil {
+		pbData.weights = make([]int, len(lits))
+		for i := range pbData.weights {
+			pbData.weights[i] = 1
+		}
+	}
+	return &Clause{lits: lits, lbdValue: uint32(card - 1), pbData: &pbData}
 }
 
 // NewLearnedClause returns a new clause marked as learned.
@@ -87,7 +99,7 @@ func (c *Clause) Learned() bool {
 // PseudoBoolean returns true iff c is a pseudo boolean constraint, and not
 // just a propositional clause or cardinality constraint.
 func (c *Clause) PseudoBoolean() bool {
-	return c.weights != nil
+	return c.pbData != nil
 }
 
 func (c *Clause) lock() {
@@ -142,20 +154,20 @@ func (c *Clause) Set(i int, l Lit) {
 // Weight returns the weight of the ith literal.
 // In a propositional clause or a cardinality constraint, that value will always be 1.
 func (c *Clause) Weight(i int) int {
-	if c.weights == nil {
+	if c.pbData == nil {
 		return 1
 	}
-	return c.weights[i]
+	return c.pbData.weights[i]
 }
 
 // WeightSum returns the sum of the PB weights.
 // If c is a propositional clause, the function will return the length of the clause.
 func (c *Clause) WeightSum() int {
-	if c.weights == nil {
+	if c.pbData == nil {
 		return len(c.lits)
 	}
 	res := 0
-	for _, w := range c.weights {
+	for _, w := range c.pbData.weights {
 		res += w
 	}
 	return res
@@ -164,8 +176,8 @@ func (c *Clause) WeightSum() int {
 // swap swaps the ith and jth lits from the clause.
 func (c *Clause) swap(i, j int) {
 	c.lits[i], c.lits[j] = c.lits[j], c.lits[i]
-	if c.weights != nil {
-		c.weights[i], c.weights[j] = c.weights[j], c.weights[i]
+	if c.pbData != nil {
+		c.pbData.weights[i], c.pbData.weights[j] = c.pbData.weights[j], c.pbData.weights[i]
 	}
 }
 
@@ -186,9 +198,9 @@ func (c *Clause) updateCardinality(add int) {
 func (c *Clause) removeLit(idx int) {
 	c.lits[idx] = c.lits[len(c.lits)-1]
 	c.lits = c.lits[:len(c.lits)-1]
-	if c.weights != nil {
-		c.weights[idx] = c.weights[len(c.weights)-1]
-		c.weights = c.weights[:len(c.weights)-1]
+	if c.pbData != nil {
+		c.pbData.weights[idx] = c.pbData.weights[len(c.pbData.weights)-1]
+		c.pbData.weights = c.pbData.weights[:len(c.pbData.weights)-1]
 	}
 }
 
@@ -196,8 +208,9 @@ func (c *Clause) removeLit(idx int) {
 // starting from position newLen.
 func (c *Clause) Shrink(newLen int) {
 	c.lits = c.lits[:newLen]
-	if c.weights != nil {
-		c.weights = c.weights[:newLen]
+	if c.pbData != nil {
+		c.pbData.weights = c.pbData.weights[:newLen]
+		c.pbData.watched = c.pbData.watched[:newLen]
 	}
 }
 
@@ -212,26 +225,11 @@ func (c *Clause) CNF() string {
 
 // PBString returns a string representation of c as a pseudo-boolean expression.
 func (c *Clause) PBString() string {
-	/*terms := make([]string, c.Len())
-	for i, lit := range c.lits {
-		weight := ""
-		if c.weights != nil && c.weights[i] != 1 {
-			weight = fmt.Sprintf("%d * ", c.weights[i])
-		}
-		val := lit.Int()
-		sign := ""
-		if val < 0 {
-			val = -val
-			sign = "¬"
-		}
-		terms[i] = fmt.Sprintf("%s%sx%d", weight, sign, val)
-	}
-	return fmt.Sprintf("%s ≥ %d", strings.Join(terms, " + "), c.Cardinality())*/
 	terms := make([]string, c.Len())
 	for i, lit := range c.lits {
 		weight := 1
-		if c.weights != nil {
-			weight = c.weights[i]
+		if c.pbData != nil {
+			weight = c.pbData.weights[i]
 		}
 		val := lit.Int()
 		sign := ""

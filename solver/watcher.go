@@ -85,7 +85,7 @@ func (s *Solver) watchClause(c *Clause) {
 			lit := c.Get(i)
 			neg := lit.Negation()
 			s.wl.wlistPb[neg] = append(s.wl.wlistPb[neg], c)
-			c.watched[i] = true
+			c.pbData.watched[i] = true
 			w += c.Weight(i)
 			i++
 		}
@@ -357,7 +357,7 @@ func (s *Solver) sumWeights(c *Clause) (sum int, sat bool) {
 	sum = 0
 	sumSat := 0
 	card := c.Cardinality()
-	for i, v := range c.weights {
+	for i, v := range c.pbData.weights {
 		if status := s.litStatus(c.Get(i)); status == Indet {
 			sum += v
 		} else if status == Sat {
@@ -418,27 +418,27 @@ func (s *Solver) updateWatchPB(clause *Clause) {
 	for weightWatched <= card && i < clause.Len() {
 		lit := clause.Get(i)
 		if s.litStatus(lit) == Unsat {
-			if clause.watched[i] {
+			if clause.pbData.watched[i] {
 				ni := &s.wl.wlistPb[lit.Negation()]
 				*ni = removeFrom(*ni, clause)
-				clause.watched[i] = false
+				clause.pbData.watched[i] = false
 			}
 		} else {
 			weightWatched += clause.Weight(i)
-			if !clause.watched[i] {
+			if !clause.pbData.watched[i] {
 				ni := &s.wl.wlistPb[lit.Negation()]
 				*ni = append(*ni, clause)
-				clause.watched[i] = true
+				clause.pbData.watched[i] = true
 			}
 		}
 		i++
 	}
 	// If there are some more watched literals, they are now useless
 	for i := i; i < clause.Len(); i++ {
-		if clause.watched[i] {
+		if clause.pbData.watched[i] {
 			ni := &s.wl.wlistPb[clause.Get(i).Negation()]
 			*ni = removeFrom(*ni, clause)
-			clause.watched[i] = false
+			clause.pbData.watched[i] = false
 		}
 	}
 }
