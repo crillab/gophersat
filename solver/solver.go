@@ -76,6 +76,7 @@ type Solver struct {
 	asumptions      []Lit   // Literals that are, ideally, true. Useful when trying to minimize a function.
 	localNbRestarts int     // How many restarts since Solve() was called?
 	varDecay        float64 // On each var decay, how much the varInc should be decayed
+	trailBuf        []int   // A buffer while cleaning bindings
 }
 
 // New makes a solver, given a number of variables and a set of clauses.
@@ -96,6 +97,7 @@ func New(problem *Problem) *Solver {
 		minLits:    problem.minLits,
 		minWeights: problem.minWeights,
 		varDecay:   defaultVarDecay,
+		trailBuf:   make([]int, nbVars),
 	}
 
 	s.resetOptimPolarity()
@@ -232,34 +234,48 @@ func abs(val decLevel) decLevel {
 	return val
 }
 
-// Reinitializes bindings (both model & reason) for all variables
-// That have been bound at a decLevel >= lvl
+// Reinitializes bindings (both model & reason) for all variablesbound at a decLevel >= lvl.
+// TODO: check this method as it has a weird behavior regarding performance.
+// TODO: clean-up commented-out code and understand underlying performance pattern.
 func (s *Solver) cleanupBindings(lvl decLevel) {
-	toInsert := make([]int, 0, len(s.trail))
-	for i, lit := range s.trail {
-		if abs(s.model[lit.Var()]) > lvl { // All lits in trail from here must be made unbound.
-			for j := i; j < len(s.trail); j++ {
-				lit2 := s.trail[j]
-				v := lit2.Var()
-				s.model[v] = 0
-				if s.reason[v] != nil {
-					s.reason[v].unlock()
-					s.reason[v] = nil
-				}
-				s.polarity[v] = lit2.IsPositive()
-				if !s.varQueue.contains(int(v)) {
-					toInsert = append(toInsert, int(v))
-					s.varQueue.insert(int(v))
-				}
-			}
-			s.trail = s.trail[:i]
-			break
+	i := 0
+	lit := s.trail[i]
+	for abs(s.model[lit.Var()]) <= lvl {
+		i++
+		lit = s.trail[i]
+	}
+	/*for j := len(s.trail) - 1; j >= i; j-- {
+		lit2 := s.trail[j]
+		v := lit2.Var()
+		s.model[v] = 0
+		if s.reason[v] != nil {
+			s.reason[v].unlock()
+			s.reason[v] = nil
+		}
+		s.polarity[v] = lit2.IsPositive()
+		s.varQueue.superInsert(int(v))
+	}
+	s.trail = s.trail[:i]
+	*/
+	toInsert := s.trailBuf[:0] // make([]int, 0, len(s.trail)-i)
+	for j := i; j < len(s.trail); j++ {
+		lit2 := s.trail[j]
+		v := lit2.Var()
+		s.model[v] = 0
+		if s.reason[v] != nil {
+			s.reason[v].unlock()
+			s.reason[v] = nil
+		}
+		s.polarity[v] = lit2.IsPositive()
+		if !s.varQueue.contains(int(v)) {
+			toInsert = append(toInsert, int(v))
+			s.varQueue.insert(int(v))
 		}
 	}
+	s.trail = s.trail[:i]
 	for i := len(toInsert) - 1; i >= 0; i-- {
 		s.varQueue.insert(toInsert[i])
 	}
-	s.resetOptimPolarity()
 	/*for i := len(s.trail) - 1; i >= 0; i-- {
 		lit := s.trail[i]
 		v := lit.Var()
@@ -277,6 +293,7 @@ func (s *Solver) cleanupBindings(lvl decLevel) {
 			s.varQueue.insert(int(v))
 		}
 	}*/
+	s.resetOptimPolarity()
 }
 
 // Given the last learnt clause and the levels at which vars were bound,
@@ -319,7 +336,6 @@ func (s *Solver) propagateAndSearch(lit Lit, lvl decLevel) Status {
 		if conflict := s.unifyLiteral(lit, lvl); conflict == nil { // Pick new branch or restart
 			if s.lbdStats.mustRestart() {
 				s.lbdStats.clear()
-				// s.cleanupBindings(decLevel(len(s.asumptions)) + 1)
 				s.cleanupBindings(1)
 				return Indet
 			}
