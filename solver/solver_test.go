@@ -269,10 +269,6 @@ func BenchmarkSolverHoons(b *testing.B) {
 	runBench("testcnf/hoons-vbmc-lucky7.cnf", b)
 }
 
-func BenchmarkSolverGss(b *testing.B) {
-	runBench("testcnf/gss-13-s100.cnf", b)
-}
-
 func BenchmarkSolverXinetd(b *testing.B) {
 	runBench("testcnf/xinetd_vc56703.cnf", b)
 }
