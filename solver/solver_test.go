@@ -265,6 +265,10 @@ func BenchmarkCountModels(b *testing.B) {
 	}
 }
 
+func BenchmarkSolver25(b *testing.B) {
+	runBench("testcnf/25.cnf", b)
+}
+
 func BenchmarkSolverHoons(b *testing.B) {
 	runBench("testcnf/hoons-vbmc-lucky7.cnf", b)
 }
@@ -303,4 +307,8 @@ func BenchmarkSolverEqAtree(b *testing.B) {
 
 func BenchmarkSolverManolPipe(b *testing.B) {
 	runBench("testcnf/manol-pipe-c9.cnf", b)
+}
+
+func BenchmarkSolverZebra(b *testing.B) {
+	runBench("testcnf/zebra.cnf", b)
 }
