@@ -175,11 +175,8 @@ func removeFrom(lst []*Clause, c *Clause) []*Clause {
 	return lst[:last]
 }
 
-// Unifies the given literal and returns a conflict clause, or nil if no conflict arose.
-func (s *Solver) unifyLiteral(lit Lit, lvl decLevel) *Clause {
-	s.model[lit.Var()] = lvlToSignedLvl(lit, lvl)
-	ptr := len(s.trail)
-	s.trail = append(s.trail, lit)
+// Propagates literals in the trail starting from the ptrth, and returns a conflict clause, or nil if none arose.
+func (s *Solver) propagate(ptr int, lvl decLevel) *Clause {
 	for ptr < len(s.trail) {
 		lit := s.trail[ptr]
 		for _, w := range s.wl.wlistBin[lit] {
@@ -211,6 +208,13 @@ func (s *Solver) unifyLiteral(lit Lit, lvl decLevel) *Clause {
 	}
 	// No unsat clause was met
 	return nil
+}
+
+// Unifies the given literal and returns a conflict clause, or nil if no conflict arose.
+func (s *Solver) unifyLiteral(lit Lit, lvl decLevel) *Clause {
+	s.model[lit.Var()] = lvlToSignedLvl(lit, lvl)
+	s.trail = append(s.trail, lit)
+	return s.propagate(len(s.trail)-1, lvl)
 }
 
 func (s *Solver) propagateUnit(c *Clause, lvl decLevel, unit Lit) {

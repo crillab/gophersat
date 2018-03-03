@@ -83,11 +83,14 @@ type Solver struct {
 // nbVars should be consistent with the content of clauses, i.e.
 // the biggest variable in clauses should be >= nbVars.
 func New(problem *Problem) *Solver {
+	if problem.Status == Unsat {
+		return &Solver{status: Unsat}
+	}
 	nbVars := problem.NbVars
 	s := &Solver{
 		nbVars:     nbVars,
 		status:     problem.Status,
-		trail:      make([]Lit, 0, nbVars),
+		trail:      make([]Lit, len(problem.Units), nbVars),
 		model:      problem.Model,
 		activity:   make([]float64, nbVars),
 		polarity:   make([]bool, nbVars),
@@ -99,18 +102,17 @@ func New(problem *Problem) *Solver {
 		varDecay:   defaultVarDecay,
 		trailBuf:   make([]int, nbVars),
 	}
-
 	s.resetOptimPolarity()
 	s.initOptimActivity()
 	s.initWatcherList(problem.Clauses)
 	s.varQueue = newQueue(s.activity)
-	for _, lit := range problem.Units {
+	for i, lit := range problem.Units {
 		if lit.IsPositive() {
 			s.model[lit.Var()] = 1
 		} else {
 			s.model[lit.Var()] = -1
 		}
-		s.trail = append(s.trail, lit)
+		s.trail[i] = lit
 	}
 	return s
 }
@@ -244,18 +246,21 @@ func (s *Solver) cleanupBindings(lvl decLevel) {
 		i++
 		lit = s.trail[i]
 	}
-	/*for j := len(s.trail) - 1; j >= i; j-- {
-		lit2 := s.trail[j]
-		v := lit2.Var()
-		s.model[v] = 0
-		if s.reason[v] != nil {
-			s.reason[v].unlock()
-			s.reason[v] = nil
-		}
-		s.polarity[v] = lit2.IsPositive()
-		s.varQueue.superInsert(int(v))
-	}
-	s.trail = s.trail[:i]
+	/*
+		for j := len(s.trail) - 1; j >= i; j-- {
+				lit2 := s.trail[j]
+				v := lit2.Var()
+				s.model[v] = 0
+				if s.reason[v] != nil {
+					s.reason[v].unlock()
+					s.reason[v] = nil
+				}
+				s.polarity[v] = lit2.IsPositive()
+				if !s.varQueue.contains(int(v)) {
+					s.varQueue.insert(int(v))
+				}
+			}
+			s.trail = s.trail[:i]
 	*/
 	toInsert := s.trailBuf[:0] // make([]int, 0, len(s.trail)-i)
 	for j := i; j < len(s.trail); j++ {

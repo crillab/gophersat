@@ -56,8 +56,123 @@ func (pb *Problem) updateStatus(nbClauses int) {
 	}
 }
 
-// simplify simplifies the problem, i.e runs unit propagation if possible.
 func (pb *Problem) simplify() {
+	idxClauses := make([][]int, pb.NbVars*2) // For each lit, indexes of clauses it appears in
+	removed := make([]bool, len(pb.Clauses)) // Clauses that have to be removed
+	for i := range pb.Clauses {
+		pb.simplifyClause(i, idxClauses, removed)
+		if pb.Status == Unsat {
+			return
+		}
+	}
+	for i := 0; i < len(pb.Units); i++ {
+		lit := pb.Units[i]
+		neg := lit.Negation()
+		clauses := idxClauses[neg]
+		for j := range clauses {
+			pb.simplifyClause(j, idxClauses, removed)
+		}
+	}
+	pb.rmClauses(removed)
+}
+
+func (pb *Problem) simplifyClause(idx int, idxClauses [][]int, removed []bool) {
+	c := pb.Clauses[idx]
+	k := 0
+	sat := false
+	for j := 0; j < c.Len(); j++ {
+		lit := c.Get(j)
+		v := lit.Var()
+		if pb.Model[v] == 0 {
+			c.Set(k, c.Get(j))
+			k++
+			idxClauses[lit] = append(idxClauses[lit], idx)
+		} else if (pb.Model[v] > 0) == lit.IsPositive() {
+			sat = true
+			break
+		}
+	}
+	if sat {
+		removed[idx] = true
+		return
+	}
+	if k == 0 {
+		pb.Status = Unsat
+		return
+	}
+	if k == 1 {
+		pb.addUnit(c.First())
+		if pb.Status == Unsat {
+			return
+		}
+		removed[idx] = true
+	}
+	c.Shrink(k)
+}
+
+// rmClauses removes clauses that are already satisfied after simplification.
+func (pb *Problem) rmClauses(removed []bool) {
+	j := 0
+	for i, rm := range removed {
+		if !rm {
+			pb.Clauses[j] = pb.Clauses[i]
+			j++
+		}
+	}
+	pb.Clauses = pb.Clauses[:j]
+}
+
+// simplify simplifies the pure SAT problem, i.e runs unit propagation if possible.
+func (pb *Problem) simplify2() {
+	nbClauses := len(pb.Clauses)
+	restart := true
+	for restart {
+		restart = false
+		i := 0
+		for i < nbClauses {
+			c := pb.Clauses[i]
+			nbLits := c.Len()
+			clauseSat := false
+			j := 0
+			for j < nbLits {
+				lit := c.Get(j)
+				if pb.Model[lit.Var()] == 0 {
+					j++
+				} else if (pb.Model[lit.Var()] == 1) == lit.IsPositive() {
+					clauseSat = true
+					break
+				} else {
+					nbLits--
+					c.Set(j, c.Get(nbLits))
+				}
+			}
+			if clauseSat {
+				nbClauses--
+				pb.Clauses[i] = pb.Clauses[nbClauses]
+			} else if nbLits == 0 {
+				pb.Status = Unsat
+				return
+			} else if nbLits == 1 { // UP
+				pb.addUnit(c.First())
+				if pb.Status == Unsat {
+					return
+				}
+				nbClauses--
+				pb.Clauses[i] = pb.Clauses[nbClauses]
+				restart = true // Must restart, since this lit might have made one more clause Unit or SAT.
+			} else { // nb lits unbound > cardinality
+				if c.Len() != nbLits {
+					c.Shrink(nbLits)
+				}
+				i++
+			}
+		}
+	}
+	pb.updateStatus(nbClauses)
+}
+
+// simplifyCard simplifies the problem, i.e runs unit propagation if possible.
+func (pb *Problem) simplifyCard() {
 	nbClauses := len(pb.Clauses)
 	restart := true
 	for restart {
