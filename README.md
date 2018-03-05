@@ -1,5 +1,6 @@
 # Gophersat, a SAT and pseudo-boolean solver written in Go
 
+![Status](https://img.shields.io/badge/status-stable-green.svg?style=plastic)
 [![GitHub tag](https://img.shields.io/github/tag/crillab/gophersat.svg)](https://github.com/crillab/gophersat)
 ![license](https://img.shields.io/github/license/crillab/gophersat.svg)
 [![GoReport](https://goreportcard.com/badge/github.com/crillab/gophersat)](https://goreportcard.com/report/github.com/crillab/gophersat)
