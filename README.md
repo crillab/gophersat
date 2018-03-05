@@ -1,5 +1,7 @@
 # Gophersat, a SAT and pseudo-boolean solver written in Go
 
+[![GitHub tag](https://img.shields.io/github/tag/crillab/gophersat.svg)](https://github.com/crillab/gophersat)
+![license](https://img.shields.io/github/license/crillab/gophersat.svg)
 [![GoReport](https://goreportcard.com/badge/github.com/crillab/gophersat)](https://goreportcard.com/report/github.com/crillab/gophersat)
 [![GoDoc](https://godoc.org/github.com/crillab/gophersat?status.svg)](https://godoc.org/github.com/crillab/gophersat)
 
@@ -9,10 +11,10 @@ This is Gophersat, a SAT and pseudo-boolean solver written purely in Go.
 Gophersat was developed by the [CRIL (Centre de Recherche en Informatique
 de Lens)](http://www.cril.fr) at the Artois University & CNRS. It is
 released under the MIT license. Gophersat is rather efficient, i.e on
-typical SAT benchmarks it runs about 5 to 20 times slower than top-level
+typical SAT benchmarks it runs about 2 to 5 times slower than top-level
 solvers (namely, [glucose](http://www.labri.fr/perso/lsimon/glucose/) or
 [minisat](http://minisat.se/)) from which it is strongly inspired.
-It can also solve pseudo-boolean decision and optimization problems.
+It can also solve MAXSAT problems, and pseudo-boolean decision and optimization problems.
 
 ## Version 1.1
 
@@ -109,6 +111,21 @@ noobs"](examples/sat-for-noobs.md).
 MAXSAT is the optimization equivalent of the SAT decision problem. While a pure SAT solver will either return a
 model satisfying all clauses or UNSAT if no such model exists, a MAXSAT solver will return a model that satisfies
 as many clauses as possible.
+
+### Partial and weighted MAXSAT
+
+There are extensions to MAXSAT.
+
+**Partial MAXSAT** means that, although we want to satisfy as many clauses as possible,
+some clauses (called *hard clauses*) *must* be satisfied, not matter what. A partial MAXSAT problem can thus be
+declared unsatisfiable.
+
+For instance, generating a timetable for a school is a partial MAXSAT problem: there are both soft (we want to have as little classes as possible that start after 4 PM, for instance)
+and hard (two teachers cannot be in two different places at the same time) constraints.
+
+**Weighted MAXSAT** means that clauses are associated with a cost: although optional, some clauses are deemed more important than others. For instance, if clause C1 has a cost of 3 and clauses C2 and C3 both have a cost of 1, a solution satisfying C1 but neither C2 nor C3 will be considered better than a solution satisfying both C2 and C3 but not C1, all other things being equal.
+
+**Partial weighted MAXSAT** means that there are both soft and hard clauses in the problem, and soft clauses are weighted. In this regard, "pure" MAXSAT is a particular case of the more generic partial weighted MAXSAT: a "pure" MAXSAT problem is a partial weighted MAXSAT problem where all clauses are soft clauses associated with a weight of 1.
 
 ## What about pseudo-boolean problems?
 Pseudo-boolean problems are, in a way, a generalization of SAT problems: any propositional clause
