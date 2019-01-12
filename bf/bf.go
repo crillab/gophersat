@@ -294,6 +294,7 @@ func uniqueRec(vars ...variable) Formula {
 	sqrt := math.Sqrt(float64(nbVars))
 	nbLines := int(sqrt + 0.5)
 	lines := make([]variable, nbLines)
+	linesF := make([][]Formula, nbLines)
 	allNames := make([]string, len(vars))
 	for i := range vars {
 		allNames[i] = vars[i].name
@@ -301,17 +302,27 @@ func uniqueRec(vars ...variable) Formula {
 	fullName := strings.Join(allNames, "-")
 	for i := range lines {
 		lines[i] = dummyVar(fmt.Sprintf("line-%d-%s", i, fullName))
+		linesF[i] = []Formula{}
 	}
 	nbCols := int(math.Ceil(sqrt))
 	cols := make([]variable, nbCols)
+	colsF := make([][]Formula, nbCols)
 	for i := range cols {
 		cols[i] = dummyVar(fmt.Sprintf("col-%d-%s", i, fullName))
+		colsF[i] = []Formula{}
 	}
 	res := make([]Formula, 0, 2*nbVars+1)
 	for i, v := range vars {
-		res = append(res, Or(Not(v), lines[i/nbCols]))
-		res = append(res, Or(Not(v), cols[i%nbCols]))
+		linesF[i/nbCols] = append(linesF[i/nbCols], v)
+		colsF[i%nbCols] = append(colsF[i%nbCols], v)
 	}
+	for i := range lines {
+		res = append(res, Xor(Not(lines[i]), Or(linesF[i]...)))
+	}
+	for i := range cols {
+		res = append(res, Xor(Not(cols[i]), Or(colsF[i]...)))
+	}
+
 	res = append(res, uniqueRec(lines...))
 	res = append(res, uniqueRec(cols...))
 	return And(res...)
