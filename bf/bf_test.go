@@ -29,6 +29,21 @@ func TestUnique(t *testing.T) {
 	}
 }
 
+func TestUniqueAtLeastOne(t *testing.T) {
+	x := make([]string, 12)
+	xF := make([]Formula, len(x))
+	for i := 0; i < len(x); i++ {
+		x[i] = fmt.Sprintf("x%d", i)
+		xF[i] = Var(x[i])
+	}
+
+	f := And(Not(Or(xF...)), Unique(x...))
+	model := Solve(f)
+	if model != nil {
+		t.Errorf("problem is declared satisfiable:\n%+v", model)
+	}
+}
+
 func TestString(t *testing.T) {
 	f := And(Or(Var("a"), Not(Var("b"))), Not(Var("c")))
 	const expected = "and(or(a, not(b)), not(c))"
