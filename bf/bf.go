@@ -317,10 +317,10 @@ func uniqueRec(vars ...variable) Formula {
 		colsF[i%nbCols] = append(colsF[i%nbCols], v)
 	}
 	for i := range lines {
-		res = append(res, Xor(Not(lines[i]), Or(linesF[i]...)))
+		res = append(res, Eq(lines[i], Or(linesF[i]...)))
 	}
 	for i := range cols {
-		res = append(res, Xor(Not(cols[i]), Or(colsF[i]...)))
+		res = append(res, Eq(cols[i], Or(colsF[i]...)))
 	}
 
 	res = append(res, uniqueRec(lines...))
