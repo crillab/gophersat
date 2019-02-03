@@ -211,3 +211,20 @@ func BenchmarkUnique1000(b *testing.B) {
 		benchmarkUnique(1000)
 	}
 }
+
+func TestCnfFromNnf(t *testing.T) {
+	f := And(Or(And(Var("a"), Var("c"), Var("b"), Var("d")),
+		And(Or(Not(Var("a")), Not(Var("c"))), Or(Not(Var("b")),
+			Not(Var("d")))), Var("p")), Or(And(Or(Not(Var("a")),
+				Not(Var("c")), Not(Var("b")), Not(Var("d"))), Or(And(Var("a"),
+					Var("c")), And(Var("b"), Var("d")))), Not(Var("p"))), Var("p"),
+		Not(Var("c")), Var("d"))
+	model := Solve(f)
+	if model == nil {
+		t.Errorf("Failed to solve; f:\n%s", f)
+	}
+	check := f.Eval(model)
+	if !check {
+		t.Errorf("Model check failed")
+	}
+}
