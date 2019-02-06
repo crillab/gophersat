@@ -15,6 +15,7 @@ import (
 type Formula interface {
 	nnf() Formula
 	String() string
+	Eval(model map[string]bool) bool
 }
 
 // Solve solves the given formula.
@@ -73,6 +74,7 @@ var True Formula = trueConst{}
 
 func (t trueConst) nnf() Formula   { return t }
 func (t trueConst) String() string { return "⊤" }
+func (t trueConst) Eval(model map[string]bool) bool { return true }
 
 // The "false" constant.
 type falseConst struct{}
@@ -82,6 +84,7 @@ var False Formula = falseConst{}
 
 func (f falseConst) nnf() Formula   { return f }
 func (f falseConst) String() string { return "⊥" }
+func (f falseConst) Eval(model map[string]bool) bool { return false }
 
 // Var generates a named boolean variable in a formula.
 func Var(name string) Formula {
@@ -109,6 +112,14 @@ func (v variable) String() string {
 	return v.name
 }
 
+func (v variable) Eval(model map[string]bool) bool {
+	b, ok := model[v.name]
+	if !ok {
+		panic(fmt.Errorf("Model lacks binding for variable %s", v.name))
+	}
+	return b
+}
+
 type lit struct {
 	v      variable
 	signed bool
@@ -123,6 +134,14 @@ func (l lit) String() string {
 		return "not(" + l.v.name + ")"
 	}
 	return l.v.name
+}
+
+func (l lit) Eval(model map[string]bool) bool {
+	b := l.v.Eval(model)
+	if l.signed {
+		return !b
+	}
+	return b
 }
 
 // Not represents a negation. It negates the given subformula.
@@ -168,6 +187,10 @@ func (n not) String() string {
 	return "not(" + n[0].String() + ")"
 }
 
+func (n not) Eval(model map[string]bool) bool {
+	return !n[0].Eval(model)
+}
+
 // And generates a conjunction of subformulas.
 func And(subs ...Formula) Formula {
 	return and(subs)
@@ -206,6 +229,18 @@ func (a and) String() string {
 	return "and(" + strings.Join(strs, ", ") + ")"
 }
 
+func (a and) Eval(model map[string]bool) (res bool) {
+	for i, s := range a {
+		b := s.Eval(model)
+		if i == 0 {
+			res = b
+		} else {
+			res = res && b
+		}
+	}
+	return
+}
+
 // Or generates a disjunction of subformulas.
 func Or(subs ...Formula) Formula {
 	return or(subs)
@@ -242,6 +277,18 @@ func (o or) String() string {
 		strs[i] = f.String()
 	}
 	return "or(" + strings.Join(strs, ", ") + ")"
+}
+
+func (o or) Eval(model map[string]bool) (res bool) {
+	for i, s := range o {
+		b := s.Eval(model)
+		if i == 0 {
+			res = b
+		} else {
+			res = res || b
+		}
+	}
+	return
 }
 
 // Implies indicates a subformula implies another one.
@@ -402,9 +449,9 @@ func cnfRec(f Formula, vars *vars) [][]int {
 				d := vars.dummy()
 				lits = append(lits, d)
 				for _, sub2 := range sub {
-					nnf := cnfRec(sub2, vars)[0]
-					nnf = append(nnf, -d)
-					res = append(res, nnf)
+					cnf := cnfRec(sub2, vars)
+					cnf[0] = append(cnf[0], -d)
+					res = append(res, cnf...)
 				}
 			default:
 				panic("unexpected or in or")

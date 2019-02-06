@@ -211,3 +211,49 @@ func BenchmarkUnique1000(b *testing.B) {
 		benchmarkUnique(1000)
 	}
 }
+
+func TestCnfFromNnf(t *testing.T) {
+	f := And(Or(And(Var("a"), Var("c"), Var("b"), Var("d")),
+		And(Or(Not(Var("a")), Not(Var("c"))), Or(Not(Var("b")),
+			Not(Var("d")))), Var("p")), Or(And(Or(Not(Var("a")),
+				Not(Var("c")), Not(Var("b")), Not(Var("d"))), Or(And(Var("a"),
+					Var("c")), And(Var("b"), Var("d")))), Not(Var("p"))), Var("p"),
+		Not(Var("c")), Var("d"))
+	model := Solve(f)
+	if model == nil {
+		t.Errorf("Failed to solve; f:\n%s", f)
+	}
+	check := f.Eval(model)
+	if !check {
+		t.Errorf("Model check failed")
+	}
+}
+
+func TestReproduceInvalidSolutionBug2(t *testing.T) {
+	f := And(And(And(Or(Not(And(Or(Not(And(Var("a"), Var("e"))),
+		Not(And(Var("b"), Var("g")))), Or(And(Var("a"), Var("e")), And(Var("b"),
+			Var("g"))))), Var("i")), Or(And(Or(Not(And(Var("a"), Var("e"))),
+				Not(And(Var("b"), Var("g")))), Or(And(Var("a"), Var("e")), And(Var("b"),
+					Var("g")))), Not(Var("i")))), And(Or(Not(And(Or(Not(And(Var("c"),
+						Var("e"))), Not(And(Var("d"), Var("g")))), Or(And(Var("c"), Var("e")),
+							And(Var("d"), Var("g"))))), Var("k")), Or(And(Or(Not(And(Var("c"),
+								Var("e"))), Not(And(Var("d"), Var("g")))), Or(And(Var("c"), Var("e")),
+									And(Var("d"), Var("g")))), Not(Var("k")))),
+		And(Or(Not(And(Or(Not(And(Var("a"), Var("f"))), Not(And(Var("b"),
+			Var("h")))), Or(And(Var("a"), Var("f")), And(Var("b"), Var("h"))))),
+			Var("j")), Or(And(Or(Not(And(Var("a"), Var("f"))), Not(And(Var("b"),
+				Var("h")))), Or(And(Var("a"), Var("f")), And(Var("b"), Var("h")))),
+				Not(Var("j")))), And(Or(Not(And(Or(Not(And(Var("c"), Var("f"))),
+					Not(And(Var("d"), Var("h")))), Or(And(Var("c"), Var("f")), And(Var("d"),
+						Var("h"))))), Var("l")), Or(And(Or(Not(And(Var("c"), Var("f"))),
+							Not(And(Var("d"), Var("h")))), Or(And(Var("c"), Var("f")), And(Var("d"),
+								Var("h")))), Not(Var("l"))))), And(And(Not(Var("a")), Not(Var("b"))),
+									And(Var("i"), Not(Var("j")), Not(Var("k")), Var("l"))))
+	model := Solve(f)
+	if model == nil {
+		t.Errorf("Failed to solve; f:\n%s", f)
+	}
+	if !f.Eval(model) {
+		t.Errorf("Model check failed")
+	}
+}
