@@ -22,7 +22,10 @@ func (pb *Problem) Optim() bool {
 
 // CNF returns a DIMACS CNF representation of the problem.
 func (pb *Problem) CNF() string {
-	res := fmt.Sprintf("p cnf %d %d\n", pb.NbVars, len(pb.Clauses))
+	res := fmt.Sprintf("p cnf %d %d\n", pb.NbVars, len(pb.Clauses)+len(pb.Units))
+	for _, unit := range pb.Units {
+		res += fmt.Sprintf("%d 0\n", unit.Int())
+	}
 	for _, clause := range pb.Clauses {
 		res += fmt.Sprintf("%s\n", clause.CNF())
 	}
@@ -31,7 +34,10 @@ func (pb *Problem) CNF() string {
 
 // PBString returns a representation of the problem as a pseudo-boolean problem.
 func (pb *Problem) PBString() string {
-	res := ""
+	res := pb.costFuncString()
+	for _, unit := range pb.Units {
+		res += fmt.Sprintf("1 x%d = 1 ;\n", unit.Int())
+	}
 	for _, clause := range pb.Clauses {
 		res += fmt.Sprintf("%s\n", clause.PBString())
 	}
@@ -47,6 +53,34 @@ func (pb *Problem) SetCostFunc(lits []Lit, weights []int) {
 	}
 	pb.minLits = lits
 	pb.minWeights = weights
+}
+
+// costFuncString returns a string representation of the cost function of the problem, if any, followed by a \n.
+// If there is no cost function, the empty string will be returned.
+func (pb *Problem) costFuncString() string {
+	if pb.minLits == nil {
+		return ""
+	}
+	res := "min: "
+	for i, lit := range pb.minLits {
+		w := 1
+		if pb.minWeights != nil {
+			w = pb.minWeights[i]
+		}
+		sign := ""
+		if w >= 0 && i != 0 { // No plus sign for the first term or for negative terms.
+			sign = "+"
+		}
+		val := lit.Int()
+		neg := ""
+		if val < 0 {
+			val = -val
+			neg = "~"
+		}
+		res += fmt.Sprintf("%s%d %sx%d", sign, w, neg, lit.Int())
+	}
+	res += " ;\n"
+	return res
 }
 
 func (pb *Problem) updateStatus(nbClauses int) {
