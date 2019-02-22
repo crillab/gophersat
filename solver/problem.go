@@ -77,7 +77,7 @@ func (pb *Problem) costFuncString() string {
 			val = -val
 			neg = "~"
 		}
-		res += fmt.Sprintf("%s%d %sx%d", sign, w, neg, lit.Int())
+		res += fmt.Sprintf("%s%d %sx%d", sign, w, neg, val)
 	}
 	res += " ;\n"
 	return res
