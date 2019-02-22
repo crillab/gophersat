@@ -236,13 +236,13 @@ func abs(val decLevel) decLevel {
 	return val
 }
 
-// Reinitializes bindings (both model & reason) for all variablesbound at a decLevel >= lvl.
+// Reinitializes bindings (both model & reason) for all variables bound at a decLevel >= lvl.
 // TODO: check this method as it has a weird behavior regarding performance.
 // TODO: clean-up commented-out code and understand underlying performance pattern.
 func (s *Solver) cleanupBindings(lvl decLevel) {
 	i := 0
 	lit := s.trail[i]
-	for abs(s.model[lit.Var()]) <= lvl {
+	for i < len(s.trail)-1 && abs(s.model[lit.Var()]) <= lvl {
 		i++
 		lit = s.trail[i]
 	}
