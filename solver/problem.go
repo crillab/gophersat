@@ -1,6 +1,8 @@
 package solver
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // A Problem is a list of clauses & a nb of vars.
 type Problem struct {
@@ -36,7 +38,12 @@ func (pb *Problem) CNF() string {
 func (pb *Problem) PBString() string {
 	res := pb.costFuncString()
 	for _, unit := range pb.Units {
-		res += fmt.Sprintf("1 x%d = 1 ;\n", unit.Int())
+		sign := ""
+		if !unit.IsPositive() {
+			sign = "~"
+			unit = unit.Negation()
+		}
+		res += fmt.Sprintf("1 %sx%d = 1 ;\n", sign, unit.Int())
 	}
 	for _, clause := range pb.Clauses {
 		res += fmt.Sprintf("%s\n", clause.PBString())
@@ -273,23 +280,25 @@ func (pb *Problem) simplifyPB() {
 				lit := c.Get(j)
 				v := lit.Var()
 				w := c.Weight(j)
-				if pb.Model[v] == 0 {
+				if pb.Model[v] == 0 { // Literal not assigned: is it unit?
 					if wSum-w < card { // Lit must be true for the clause to be satisfiable
-						pb.addUnit(c.Get(j))
+						pb.addUnit(lit)
 						if pb.Status == Unsat {
 							return
 						}
 						c.removeLit(j)
 						card -= w
+						c.updateCardinality(-w)
 						wSum -= w
 						modified = true
 					} else {
 						j++
 					}
-				} else {
+				} else { // Bound literal: remove it and update, if needed, cardinality
 					wSum -= w
 					if (pb.Model[v] == 1) == lit.IsPositive() {
 						card -= w
+						c.updateCardinality(-w)
 					}
 					c.removeLit(j)
 					modified = true
