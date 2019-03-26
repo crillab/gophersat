@@ -56,8 +56,8 @@ func countModels(pb *solver.Problem, verbose bool) {
 	s := solver.New(pb)
 	if verbose {
 		fmt.Printf("c ======================================================================================\n")
-		fmt.Printf("c | Number of clauses   : %9d                                                    |\n", len(pb.Clauses))
-		fmt.Printf("c | Number of variables : %9d                                                    |\n", pb.NbVars)
+		fmt.Printf("c | Number of non-unit clauses : %9d                                             |\n", len(pb.Clauses))
+		fmt.Printf("c | Number of variables        : %9d                                             |\n", pb.NbVars)
 		s.Verbose = true
 	}
 	models := make(chan []bool)
@@ -76,8 +76,8 @@ func solve(pb *solver.Problem, verbose bool, printFn func(chan solver.Result)) {
 	s := solver.New(pb)
 	if verbose {
 		fmt.Printf("c ======================================================================================\n")
-		fmt.Printf("c | Number of clauses   : %9d                                                    |\n", len(pb.Clauses))
-		fmt.Printf("c | Number of variables : %9d                                                    |\n", pb.NbVars)
+		fmt.Printf("c | Number of non-unit clauses : %9d                                             |\n", len(pb.Clauses))
+		fmt.Printf("c | Number of variables        : %9d                                             |\n", pb.NbVars)
 		s.Verbose = true
 	}
 	results := make(chan solver.Result)
