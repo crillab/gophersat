@@ -65,7 +65,7 @@ func ParseSlice(cnf [][]int) *Problem {
 // All spaces before the int value are ignored.
 // Can return EOF.
 func readInt(b *byte, r *bufio.Reader) (res int, err error) {
-	for err == nil && (*b == ' ' || *b == '\t' || *b == '\n') {
+	for err == nil && (*b == ' ' || *b == '\t' || *b == '\n' || *b == '\r') {
 		*b, err = r.ReadByte()
 	}
 	if err == io.EOF {
@@ -88,7 +88,7 @@ func readInt(b *byte, r *bufio.Reader) (res int, err error) {
 		}
 		res = 10*res + int(*b-'0')
 		*b, err = r.ReadByte()
-		if *b == ' ' || *b == '\t' || *b == '\n' {
+		if *b == ' ' || *b == '\t' || *b == '\n' || *b == '\r' {
 			break
 		}
 	}
@@ -141,6 +141,12 @@ func ParseCNF(f io.Reader) (*Problem, error) {
 			lits := make([]Lit, 0, 3) // Make room for some lits to improve performance
 			for {
 				val, err := readInt(&b, r)
+				if err == io.EOF {
+					if len(lits) != 0 { // This is not a trailing space at the end...
+						return nil, fmt.Errorf("unfinished clause while EOF found")
+					}
+					break // When there are only several useless spaces at the end of the file, that is ok
+				}
 				if err != nil {
 					return nil, fmt.Errorf("cannot parse clause: %v", err)
 				}
@@ -148,6 +154,9 @@ func ParseCNF(f io.Reader) (*Problem, error) {
 					pb.Clauses = append(pb.Clauses, NewClause(lits))
 					break
 				} else {
+					if val > pb.NbVars || -val > pb.NbVars {
+						return nil, fmt.Errorf("invalid literal %d for problem with %d vars only", val, pb.NbVars)
+					}
 					lits = append(lits, IntToLit(int32(val)))
 				}
 			}
