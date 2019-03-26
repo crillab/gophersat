@@ -19,14 +19,22 @@ func main() {
 	var (
 		verbose bool
 		count   bool
+		help    bool
 	)
 	flag.BoolVar(&verbose, "verbose", false, "sets verbose mode on")
 	flag.BoolVar(&count, "count", false, "rather than solving the problem, counts the number of models it accepts")
+	flag.BoolVar(&help, "help", false, "displays help")
 	flag.Parse()
-	if len(flag.Args()) != 1 {
+	if !help && len(flag.Args()) != 1 {
 		fmt.Fprintf(os.Stderr, "Syntax : %s [options] (file.cnf|file.wcnf|file.bf|file.opb)\n", os.Args[0])
 		flag.PrintDefaults()
 		os.Exit(1)
+	}
+	if help {
+		fmt.Printf("This is gophersat version 1.1.6, a SAT and Pseudo-Boolean solver by Fabien Delorme.\n")
+		fmt.Printf("Syntax : %s [options] (file.cnf|file.wcnf|file.bf|file.opb)\n", os.Args[0])
+		flag.PrintDefaults()
+		os.Exit(0)
 	}
 	path := flag.Args()[0]
 	fmt.Printf("c solving %s\n", path)
