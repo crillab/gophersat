@@ -241,10 +241,8 @@ func abs(val decLevel) decLevel {
 // TODO: clean-up commented-out code and understand underlying performance pattern.
 func (s *Solver) cleanupBindings(lvl decLevel) {
 	i := 0
-	lit := s.trail[i]
-	for i < len(s.trail)-1 && abs(s.model[lit.Var()]) <= lvl {
+	for i < len(s.trail) && abs(s.model[s.trail[i].Var()]) <= lvl {
 		i++
-		lit = s.trail[i]
 	}
 	/*
 		for j := len(s.trail) - 1; j >= i; j-- {
