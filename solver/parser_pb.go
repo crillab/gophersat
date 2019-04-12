@@ -88,7 +88,16 @@ func ParsePBConstrs(constrs []PBConstr) *Problem {
 		if sumW == card { // All lits must be true
 			for i := range constr.Lits {
 				lit := IntToLit(int32(constr.Lits[i]))
-				pb.Units = append(pb.Units, lit)
+				found := false
+				for _, u := range pb.Units {
+					if u == lit {
+						found = true
+						break
+					}
+				}
+				if !found {
+					pb.Units = append(pb.Units, lit)
+				}
 			}
 		} else {
 			lits := make([]Lit, len(constr.Lits))

@@ -26,6 +26,7 @@ func main() {
 	flag.BoolVar(&help, "help", false, "displays help")
 	flag.Parse()
 	if !help && len(flag.Args()) != 1 {
+		fmt.Printf("This is gophersat version 1.1.6, a SAT and Pseudo-Boolean solver by Fabien Delorme.\n")
 		fmt.Fprintf(os.Stderr, "Syntax : %s [options] (file.cnf|file.wcnf|file.bf|file.opb)\n", os.Args[0])
 		flag.PrintDefaults()
 		os.Exit(1)
@@ -94,7 +95,7 @@ func solve(pb *solver.Problem, verbose bool, printFn func(chan solver.Result)) {
 	if verbose {
 		fmt.Printf("c nb conflicts: %d\nc nb restarts: %d\nc nb decisions: %d\n", s.Stats.NbConflicts, s.Stats.NbRestarts, s.Stats.NbDecisions)
 		fmt.Printf("c nb unit learned: %d\nc nb binary learned: %d\nc nb learned: %d\n", s.Stats.NbUnitLearned, s.Stats.NbBinaryLearned, s.Stats.NbLearned)
-		fmt.Printf("c nb clauses deleted: %d\n", s.Stats.NbDeleted)
+		fmt.Printf("c nb learned clauses deleted: %d\n", s.Stats.NbDeleted)
 	}
 }
 
