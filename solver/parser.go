@@ -59,13 +59,17 @@ func ParseSlice(cnf [][]int) *Problem {
 	return &pb
 }
 
+func isSpace(b byte) bool {
+	return b == ' ' || b == '\t' || b == '\n' || b == '\r'
+}
+
 // readInt reads an int from r.
 // 'b' is the last read byte. It can be a space, a '-' or a digit.
 // The int can be negated.
 // All spaces before the int value are ignored.
 // Can return EOF.
 func readInt(b *byte, r *bufio.Reader) (res int, err error) {
-	for err == nil && (*b == ' ' || *b == '\t' || *b == '\n' || *b == '\r') {
+	for err == nil && isSpace(*b) {
 		*b, err = r.ReadByte()
 	}
 	if err == io.EOF {
@@ -88,7 +92,7 @@ func readInt(b *byte, r *bufio.Reader) (res int, err error) {
 		}
 		res = 10*res + int(*b-'0')
 		*b, err = r.ReadByte()
-		if *b == ' ' || *b == '\t' || *b == '\n' || *b == '\r' {
+		if isSpace(*b) {
 			break
 		}
 	}

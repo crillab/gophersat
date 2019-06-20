@@ -65,6 +65,14 @@ func ParseCardConstrs(constrs []CardConstr) *Problem {
 	return &pb
 }
 
+func (pb *Problem) appendClause(constr PBConstr) {
+	lits := make([]Lit, len(constr.Lits))
+	for j, val := range constr.Lits {
+		lits[j] = IntToLit(int32(val))
+	}
+	pb.Clauses = append(pb.Clauses, NewPBClause(lits, constr.Weights, constr.AtLeast))
+}
+
 // ParsePBConstrs parses and returns a PB problem from PBConstr values.
 func ParsePBConstrs(constrs []PBConstr) *Problem {
 	var pb Problem
@@ -100,11 +108,7 @@ func ParsePBConstrs(constrs []PBConstr) *Problem {
 				}
 			}
 		} else {
-			lits := make([]Lit, len(constr.Lits))
-			for j, val := range constr.Lits {
-				lits[j] = IntToLit(int32(val))
-			}
-			pb.Clauses = append(pb.Clauses, NewPBClause(lits, constr.Weights, card))
+			pb.appendClause(constr)
 		}
 	}
 	pb.Model = make([]decLevel, pb.NbVars)
