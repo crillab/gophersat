@@ -5,6 +5,7 @@
 ![license](https://img.shields.io/github/license/crillab/gophersat.svg)
 [![GoReport](https://goreportcard.com/badge/github.com/crillab/gophersat)](https://goreportcard.com/report/github.com/crillab/gophersat)
 [![GoDoc](https://godoc.org/github.com/crillab/gophersat?status.svg)](https://godoc.org/github.com/crillab/gophersat)
+[![Build Status](https://travis-ci.org/crillab/gophersat.svg?branch=master)](https://travis-ci.org/crillab/gophersat)
 
 ![gophersat logo](https://raw.githubusercontent.com/crillab/gophersat/master/gophersat.png)
 
