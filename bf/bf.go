@@ -72,8 +72,8 @@ type trueConst struct{}
 // True is the constant denoting a tautology.
 var True Formula = trueConst{}
 
-func (t trueConst) nnf() Formula   { return t }
-func (t trueConst) String() string { return "⊤" }
+func (t trueConst) nnf() Formula                    { return t }
+func (t trueConst) String() string                  { return "⊤" }
 func (t trueConst) Eval(model map[string]bool) bool { return true }
 
 // The "false" constant.
@@ -82,8 +82,8 @@ type falseConst struct{}
 // False is the constant denoting a contradiction.
 var False Formula = falseConst{}
 
-func (f falseConst) nnf() Formula   { return f }
-func (f falseConst) String() string { return "⊥" }
+func (f falseConst) nnf() Formula                    { return f }
+func (f falseConst) String() string                  { return "⊥" }
 func (f falseConst) Eval(model map[string]bool) bool { return false }
 
 // Var generates a named boolean variable in a formula.
