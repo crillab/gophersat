@@ -2,6 +2,10 @@ language: go
 go:
   - 1.x
   - master
-script: go build github.com/crillab/gophersat
+script:
+  - go build github.com/crillab/gophersat
+  - go test github.com/crillab/gophersat/solver
+  - go test github.com/crillab/gophersat/bf
+  - go test github.com/crillab/gophersat/maxsat
 
 
