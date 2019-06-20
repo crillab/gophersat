@@ -55,7 +55,7 @@ func ParseSlice(cnf [][]int) *Problem {
 			return &pb
 		}
 	}
-	pb.simplify()
+	pb.simplify2()
 	return &pb
 }
 
