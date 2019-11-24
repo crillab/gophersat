@@ -269,3 +269,17 @@ func TestReproduceInvalidSolutionBug2(t *testing.T) {
 		t.Errorf("Model check failed")
 	}
 }
+
+func TestPanic1(t *testing.T) {
+	ans := Solve(And(Var("x"), Var("x")))
+	if len(ans) != 1 {
+		t.Errorf("should be exactly one var")
+	}
+}
+
+func TestPanic2(t *testing.T) {
+	ans := Solve(And(Var("x"), And(Var("x"), Var("y"))))
+	if len(ans) != 2 {
+		t.Errorf("should be exactly two vars")
+	}
+}
