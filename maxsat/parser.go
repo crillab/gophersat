@@ -99,7 +99,7 @@ func ParseWCNF(f io.Reader) (solver.Interface, error) {
 	}
 	relaxLits := make([]solver.Lit, relaxLit-nbVars-1)
 	for i := range relaxLits {
-		relaxLits[i] = solver.IntToLit(int32(nbVars + i + 1))
+		relaxLits[i] = solver.IntToLit(nbVars + i + 1)
 	}
 	prob := solver.ParseSlice(clauses)
 	prob.SetCostFunc(relaxLits, weights)

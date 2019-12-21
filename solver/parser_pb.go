@@ -26,7 +26,7 @@ func ParseCardConstrs(constrs []CardConstr) *Problem {
 				if constr.Lits[i] == 0 {
 					panic("literal 0 found in clause")
 				}
-				lit := IntToLit(int32(constr.Lits[i]))
+				lit := IntToLit(constr.Lits[i])
 				v := lit.Var()
 				if int(v) >= pb.NbVars {
 					pb.NbVars = int(v) + 1
@@ -39,7 +39,7 @@ func ParseCardConstrs(constrs []CardConstr) *Problem {
 				if val == 0 {
 					panic("literal 0 found in clause")
 				}
-				lits[j] = IntToLit(int32(val))
+				lits[j] = IntToLit(val)
 				if v := int(lits[j].Var()); v >= pb.NbVars {
 					pb.NbVars = v + 1
 				}
@@ -68,7 +68,7 @@ func ParseCardConstrs(constrs []CardConstr) *Problem {
 func (pb *Problem) appendClause(constr PBConstr) {
 	lits := make([]Lit, len(constr.Lits))
 	for j, val := range constr.Lits {
-		lits[j] = IntToLit(int32(val))
+		lits[j] = IntToLit(val)
 	}
 	pb.Clauses = append(pb.Clauses, NewPBClause(lits, constr.Weights, constr.AtLeast))
 }
@@ -77,8 +77,8 @@ func (pb *Problem) appendClause(constr PBConstr) {
 func ParsePBConstrs(constrs []PBConstr) *Problem {
 	var pb Problem
 	for _, constr := range constrs {
-		for i := range constr.Lits {
-			lit := IntToLit(int32(constr.Lits[i]))
+		for _, l := range constr.Lits {
+			lit := IntToLit(l)
 			v := lit.Var()
 			if int(v) >= pb.NbVars {
 				pb.NbVars = int(v) + 1
@@ -95,7 +95,7 @@ func ParsePBConstrs(constrs []PBConstr) *Problem {
 		}
 		if sumW == card { // All lits must be true
 			for i := range constr.Lits {
-				lit := IntToLit(int32(constr.Lits[i]))
+				lit := IntToLit(constr.Lits[i])
 				found := false
 				for _, u := range pb.Units {
 					if u == lit {
@@ -137,7 +137,7 @@ func (pb *Problem) parsePBOptim(fields []string, line string) error {
 	}
 	pb.minLits = make([]Lit, len(lits))
 	for i, lit := range lits {
-		pb.minLits[i] = IntToLit(int32(lit))
+		pb.minLits[i] = IntToLit(lit)
 	}
 	pb.minWeights = weights
 	return nil
@@ -188,13 +188,13 @@ func (pb *Problem) parsePBConstrLine(fields []string, line string) error {
 		}
 		if sumW == card { // All lits must be true
 			for i := range constr.Lits {
-				lit := IntToLit(int32(constr.Lits[i]))
+				lit := IntToLit(constr.Lits[i])
 				pb.Units = append(pb.Units, lit)
 			}
 		} else {
 			lits := make([]Lit, len(constr.Lits))
 			for j, val := range constr.Lits {
-				lits[j] = IntToLit(int32(val))
+				lits[j] = IntToLit(val)
 			}
 			pb.Clauses = append(pb.Clauses, NewPBClause(lits, constr.Weights, card))
 		}

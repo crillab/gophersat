@@ -115,7 +115,7 @@ func (c *Clause) lbd() int {
 }
 
 func (c *Clause) setLbd(lbd int) {
-	c.lbdValue = (c.lbdValue & bothMasks) | uint32(lbd)
+	c.lbdValue = c.lbdValue&bothMasks | uint32(lbd)
 }
 
 func (c *Clause) incLbd() {

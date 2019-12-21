@@ -56,7 +56,7 @@ func New(constrs ...Constr) *Problem {
 	optLits := make([]solver.Lit, 0, len(pb.blockWeights))
 	optWeights := make([]int, 0, len(pb.blockWeights))
 	for v, w := range pb.blockWeights {
-		optLits = append(optLits, solver.IntToLit(int32(v)))
+		optLits = append(optLits, solver.IntToLit(v))
 		optWeights = append(optWeights, w)
 	}
 	prob := solver.ParsePBConstrs(clauses)
