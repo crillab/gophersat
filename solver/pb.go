@@ -57,11 +57,16 @@ func GtEq(lits []int, weights []int, n int) PBConstr {
 	if len(weights) != 0 && len(lits) != len(weights) {
 		panic("not as many lits as weights")
 	}
-	for i := range weights {
+	for i := 0; i < len(weights); i++ {
 		if weights[i] < 0 {
 			weights[i] = -weights[i]
 			n += weights[i]
 			lits[i] = -lits[i]
+		}
+		if weights[i] == 0 {
+			weights = append(weights[:i], weights[i+1:]...)
+			lits = append(lits[:i], lits[i+1:]...)
+			i--
 		}
 	}
 	return PBConstr{Lits: lits, Weights: weights, AtLeast: n}
