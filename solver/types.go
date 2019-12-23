@@ -43,7 +43,7 @@ type Var int32
 type Lit int32
 
 // IntToLit converts a CNF literal to a Lit.
-func IntToLit(i int) Lit {
+func IntToLit(i int32) Lit {
 	if i < 0 {
 		return Lit(2*(-i-1) + 1)
 	}
@@ -76,7 +76,7 @@ func (l Lit) Var() Var {
 // Int returns the equivalent CNF literal.
 func (l Lit) Int() int32 {
 	sign := l&1 == 1
-	res := int32(l/2 + 1)
+	res := int32((l / 2) + 1)
 	if sign {
 		return -res
 	}

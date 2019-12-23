@@ -23,7 +23,7 @@ func (c PBConstr) WeightSum() int {
 func (c PBConstr) Clause() *Clause {
 	lits := make([]Lit, len(c.Lits))
 	for i, val := range c.Lits {
-		lits[i] = IntToLit(val)
+		lits[i] = IntToLit(int32(val))
 	}
 	return NewPBClause(lits, c.Weights, c.AtLeast)
 }

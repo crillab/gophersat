@@ -343,7 +343,7 @@ func (s *Solver) propagateAndSearch(lit Lit, lvl decLevel) Status {
 				return Indet
 			}
 			if s.Stats.NbConflicts >= s.wl.idxReduce*s.wl.nbMax {
-				s.wl.idxReduce = s.Stats.NbConflicts/s.wl.nbMax + 1
+				s.wl.idxReduce = (s.Stats.NbConflicts / s.wl.nbMax) + 1
 				s.reduceLearned()
 				s.bumpNbMax()
 			}
@@ -577,9 +577,9 @@ func (s *Solver) decisionLits() []Lit {
 		if lvl := abs(s.model[i]); r == nil && lvl > 1 {
 			if s.model[i] < 0 {
 				// lvl-2 : levels beside unit clauses start at 2, not 0 or 1!
-				lits[lvl-2] = IntToLit(i + 1)
+				lits[lvl-2] = IntToLit(int32(i + 1))
 			} else {
-				lits[lvl-2] = IntToLit(-i - 1)
+				lits[lvl-2] = IntToLit(int32(-i - 1))
 			}
 		}
 	}
@@ -738,7 +738,7 @@ func (s *Solver) Optimal(results chan Result, stop chan struct{}) (res Result) {
 		copy(s.lastModel, s.model) // Save this model: it might be the last one
 		cost = 0
 		for i, lit := range s.minLits {
-			if s.model[lit.Var()] > 0 == lit.IsPositive() {
+			if (s.model[lit.Var()] > 0) == lit.IsPositive() {
 				if s.minWeights == nil {
 					cost++
 				} else {
@@ -803,7 +803,7 @@ func (s *Solver) Minimize() int {
 		copy(s.lastModel, s.model) // Save this model: it might be the last one
 		cost = 0
 		for i, lit := range s.minLits {
-			if s.model[lit.Var()] > 0 == lit.IsPositive() {
+			if (s.model[lit.Var()] > 0) == lit.IsPositive() {
 				if s.minWeights == nil {
 					cost++
 				} else {

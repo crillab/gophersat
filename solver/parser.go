@@ -21,7 +21,7 @@ func ParseSlice(cnf [][]int) *Problem {
 			if line[0] == 0 {
 				panic("null unit clause")
 			}
-			lit := IntToLit(line[0])
+			lit := IntToLit(int32(line[0]))
 			v := lit.Var()
 			if int(v) >= pb.NbVars {
 				pb.NbVars = int(v) + 1
@@ -33,7 +33,7 @@ func ParseSlice(cnf [][]int) *Problem {
 				if val == 0 {
 					panic("null literal in clause %q")
 				}
-				lits[j] = IntToLit(val)
+				lits[j] = IntToLit(int32(val))
 				if v := int(lits[j].Var()); v >= pb.NbVars {
 					pb.NbVars = v + 1
 				}
@@ -161,7 +161,7 @@ func ParseCNF(f io.Reader) (*Problem, error) {
 					if val > pb.NbVars || -val > pb.NbVars {
 						return nil, fmt.Errorf("invalid literal %d for problem with %d vars only", val, pb.NbVars)
 					}
-					lits = append(lits, IntToLit(val))
+					lits = append(lits, IntToLit(int32(val)))
 				}
 			}
 		}
