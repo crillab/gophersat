@@ -55,6 +55,45 @@ func TestLtEq(t *testing.T) {
 	}
 }
 
+func TestLtEqZeroWtFirst(t *testing.T) {
+	pc := LtEq([]int{2, 1, 3, 4}, []int{0, 2, 1, 1}, 3)
+	if pc.Weights[0] != 2 || pc.Weights[1] != 1 || pc.Weights[2] != 1 {
+		t.Errorf("incorrect weights: %v", pc.Weights)
+	}
+	if pc.Lits[0] != -1 || pc.Lits[1] != -3 || pc.Lits[2] != -4 {
+		t.Errorf("incorrect literals: %v", pc.Lits)
+	}
+	if pc.AtLeast != 1 {
+		t.Errorf("incorrect cardinality: %d", pc.AtLeast)
+	}
+}
+
+func TestLtEqZeroWtLoast(t *testing.T) {
+	pc := LtEq([]int{4, 1, 3, 2}, []int{1, 2, 1, 0}, 3)
+	if pc.Weights[0] != 1 || pc.Weights[1] != 2 || pc.Weights[2] != 1 {
+		t.Errorf("incorrect weights: %v", pc.Weights)
+	}
+	if pc.Lits[0] != -4 || pc.Lits[1] != -1 || pc.Lits[2] != -3 {
+		t.Errorf("incorrect literals: %v", pc.Lits)
+	}
+	if pc.AtLeast != 1 {
+		t.Errorf("incorrect cardinality: %d", pc.AtLeast)
+	}
+}
+
+func TestLtEqZeroWt(t *testing.T) {
+	pc := LtEq([]int{1, 2, 3, 4}, []int{2, 0, 1, 1}, 3)
+	if pc.Weights[0] != 2 || pc.Weights[1] != 1 || pc.Weights[2] != 1 {
+		t.Errorf("incorrect weights: %v", pc.Weights)
+	}
+	if pc.Lits[0] != -1 || pc.Lits[1] != -3 || pc.Lits[2] != -4 {
+		t.Errorf("incorrect literals: %v", pc.Lits)
+	}
+	if pc.AtLeast != 1 {
+		t.Errorf("incorrect cardinality: %d", pc.AtLeast)
+	}
+}
+
 func TestEq(t *testing.T) {
 	pc := Eq([]int{1, 2, 3}, []int{2, 1, 1}, 2)
 	if len(pc) != 2 {
