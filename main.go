@@ -18,21 +18,23 @@ func main() {
 	debug.SetGCPercent(300)
 	var (
 		verbose bool
+		cert    bool
 		count   bool
 		help    bool
 	)
 	flag.BoolVar(&verbose, "verbose", false, "sets verbose mode on")
+	flag.BoolVar(&cert, "certified", false, "displays RUP certificate on stdout")
 	flag.BoolVar(&count, "count", false, "rather than solving the problem, counts the number of models it accepts")
 	flag.BoolVar(&help, "help", false, "displays help")
 	flag.Parse()
 	if !help && len(flag.Args()) != 1 {
-		fmt.Printf("This is gophersat version 1.1.6, a SAT and Pseudo-Boolean solver by Fabien Delorme.\n")
+		fmt.Printf("This is gophersat version 1.1.9, a SAT and Pseudo-Boolean solver by Fabien Delorme.\n")
 		fmt.Fprintf(os.Stderr, "Syntax : %s [options] (file.cnf|file.wcnf|file.bf|file.opb)\n", os.Args[0])
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
 	if help {
-		fmt.Printf("This is gophersat version 1.1.6, a SAT and Pseudo-Boolean solver by Fabien Delorme.\n")
+		fmt.Printf("This is gophersat version 1.1.9, a SAT and Pseudo-Boolean solver by Fabien Delorme.\n")
 		fmt.Printf("Syntax : %s [options] (file.cnf|file.wcnf|file.bf|file.opb)\n", os.Args[0])
 		flag.PrintDefaults()
 		os.Exit(0)
@@ -56,7 +58,7 @@ func main() {
 		} else if count {
 			countModels(pb, verbose)
 		} else {
-			solve(pb, verbose, printFn)
+			solve(pb, verbose, cert, printFn)
 		}
 	}
 }
@@ -81,7 +83,7 @@ func countModels(pb *solver.Problem, verbose bool) {
 	fmt.Println(nb)
 }
 
-func solve(pb *solver.Problem, verbose bool, printFn func(chan solver.Result)) {
+func solve(pb *solver.Problem, verbose, cert bool, printFn func(chan solver.Result)) {
 	s := solver.New(pb)
 	if verbose {
 		fmt.Printf("c ======================================================================================\n")
@@ -89,6 +91,7 @@ func solve(pb *solver.Problem, verbose bool, printFn func(chan solver.Result)) {
 		fmt.Printf("c | Number of variables        : %9d                                             |\n", pb.NbVars)
 		s.Verbose = true
 	}
+	s.Certified = cert
 	results := make(chan solver.Result)
 	go s.Optimal(results, nil)
 	printFn(results)

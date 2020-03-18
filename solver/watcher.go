@@ -1,6 +1,9 @@
 package solver
 
-import "sort"
+import (
+	"fmt"
+	"sort"
+)
 
 type watcher struct {
 	other  Lit // Another lit from the clause
@@ -153,6 +156,17 @@ func (s *Solver) addLearned(c *Clause) {
 	s.wl.learned = append(s.wl.learned, c)
 	s.watchClause(c)
 	s.clauseBumpActivity(c)
+	if s.Certified {
+		fmt.Printf("%s\n", c.CNF())
+	}
+}
+
+// Adds the given unit literal to the model at the top level.
+func (s *Solver) addLearnedUnit(unit Lit) {
+	s.model[unit.Var()] = lvlToSignedLvl(unit, 1)
+	if s.Certified {
+		fmt.Printf("%d 0\n", unit.Int())
+	}
 }
 
 // If l is negative, -lvl is returned. Else, lvl is returned.

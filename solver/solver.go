@@ -55,6 +55,7 @@ func (m Model) String() string {
 // A Solver solves a given problem. It is the main data structure.
 type Solver struct {
 	Verbose   bool // Indicates whether the solver should display information during solving or not. False by default
+	Certified bool // Indicates whether a certificate should be displayed during solving or not, using the RUP notation. This is useful to prove UNSAT instances. False by default.
 	nbVars    int
 	status    Status
 	wl        watcherList
@@ -366,8 +367,12 @@ func (s *Solver) propagateAndSearch(lit Lit, lvl decLevel) Status {
 				s.Stats.NbUnitLearned++
 				s.lbdStats.addLbd(1)
 				s.cleanupBindings(1)
+				s.addLearnedUnit(unit)
 				s.model[unit.Var()] = lvlToSignedLvl(unit, 1)
 				if conflict = s.unifyLiteral(unit, 1); conflict != nil { // top-level conflict
+					if s.Certified {
+						fmt.Printf("0\n")
+					}
 					s.status = Unsat
 					return Unsat
 				}
