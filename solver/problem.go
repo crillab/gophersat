@@ -97,26 +97,6 @@ func (pb *Problem) updateStatus(nbClauses int) {
 	}
 }
 
-func (pb *Problem) simplify() {
-	idxClauses := make([][]int, pb.NbVars*2) // For each lit, indexes of clauses it appears in
-	removed := make([]bool, len(pb.Clauses)) // Clauses that have to be removed
-	for i := range pb.Clauses {
-		pb.simplifyClause(i, idxClauses, removed)
-		if pb.Status == Unsat {
-			return
-		}
-	}
-	for i := 0; i < len(pb.Units); i++ {
-		lit := pb.Units[i]
-		neg := lit.Negation()
-		clauses := idxClauses[neg]
-		for j := range clauses {
-			pb.simplifyClause(j, idxClauses, removed)
-		}
-	}
-	pb.rmClauses(removed)
-}
-
 func (pb *Problem) simplifyClause(idx int, idxClauses [][]int, removed []bool) {
 	c := pb.Clauses[idx]
 	k := 0
