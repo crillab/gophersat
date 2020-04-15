@@ -54,16 +54,18 @@ func (m Model) String() string {
 
 // A Solver solves a given problem. It is the main data structure.
 type Solver struct {
-	Verbose   bool // Indicates whether the solver should display information during solving or not. False by default
-	Certified bool // Indicates whether a certificate should be displayed during solving or not, using the RUP notation. This is useful to prove UNSAT instances. False by default.
-	nbVars    int
-	status    Status
-	wl        watcherList
-	trail     []Lit     // Current assignment stack
-	model     Model     // 0 means unbound, other value is a binding
-	lastModel Model     // Placeholder for last model found, useful when looking for several models
-	activity  []float64 // How often each var is involved in conflicts
-	polarity  []bool    // Preferred sign for each var
+	Verbose     bool        // Indicates whether the solver should display information during solving or not. False by default
+	Certified   bool        // Indicates whether a certificate should be generated during solving or not, using the RUP notation. This is useful to prove UNSAT instances. False by default.
+	CertChan    chan string // Indicates where to write the certificate. If Certified is true but CertChan is nil, the certificate will be written on stdout.
+	nbVars      int
+	status      Status
+	wl          watcherList
+	trail       []Lit     // Current assignment stack
+	model       Model     // 0 means unbound, other value is a binding
+	lastModel   Model     // Placeholder for last model found, useful when looking for several models
+	activity    []float64 // How often each var is involved in conflicts
+	polarity    []bool    // Preferred sign for each var
+	assumptions []bool    // True iff the var's binding is assumed
 	// For each var, clause considered when it was unified
 	// If the var is not bound yet, or if it was bound by a decision, value is nil.
 	reason          []*Clause
@@ -74,7 +76,7 @@ type Solver struct {
 	Stats           Stats   // Statistics about the solving process.
 	minLits         []Lit   // Lits to minimize if the problem was an optimization problem.
 	minWeights      []int   // Weight of each lit to minimize if the problem was an optimization problem.
-	asumptions      []Lit   // Literals that are, ideally, true. Useful when trying to minimize a function.
+	hypothesis      []Lit   // Literals that are, ideally, true. Useful when trying to minimize a function.
 	localNbRestarts int     // How many restarts since Solve() was called?
 	varDecay        float64 // On each var decay, how much the varInc should be decayed
 	trailBuf        []int   // A buffer while cleaning bindings
@@ -95,19 +97,20 @@ func New(problem *Problem) *Solver {
 	}
 
 	s := &Solver{
-		nbVars:     nbVars,
-		status:     problem.Status,
-		trail:      make([]Lit, len(problem.Units), trailCap),
-		model:      problem.Model,
-		activity:   make([]float64, nbVars),
-		polarity:   make([]bool, nbVars),
-		reason:     make([]*Clause, nbVars),
-		varInc:     1.0,
-		clauseInc:  1.0,
-		minLits:    problem.minLits,
-		minWeights: problem.minWeights,
-		varDecay:   defaultVarDecay,
-		trailBuf:   make([]int, nbVars),
+		nbVars:      nbVars,
+		status:      problem.Status,
+		trail:       make([]Lit, len(problem.Units), trailCap),
+		model:       problem.Model,
+		activity:    make([]float64, nbVars),
+		polarity:    make([]bool, nbVars),
+		assumptions: make([]bool, nbVars),
+		reason:      make([]*Clause, nbVars),
+		varInc:      1.0,
+		clauseInc:   1.0,
+		minLits:     problem.minLits,
+		minWeights:  problem.minWeights,
+		varDecay:    defaultVarDecay,
+		trailBuf:    make([]int, nbVars),
 	}
 	s.resetOptimPolarity()
 	s.initOptimActivity()
@@ -323,26 +326,11 @@ func (s *Solver) rebuildOrderHeap() {
 	s.varQueue.build(ints)
 }
 
-// satClause returns true iff c is satisfied by a literal assigned at top level.
-func (s *Solver) satClause(c *Clause) bool {
-	if c.Len() == 2 || c.Cardinality() != 1 || c.PseudoBoolean() {
-		// TODO improve this, but it will be ok since we only call this function for removing useless clauses.
-		return false
-	}
-	for i := 0; i < c.Len(); i++ {
-		lit := c.Get(i)
-		assign := s.model[lit.Var()]
-		if assign == 1 && lit.IsPositive() || assign == -1 && !lit.IsPositive() {
-			return true
-		}
-	}
-	return false
-}
-
 // propagate binds the given lit, propagates it and searches for a solution,
 // until it is found or a restart is needed.
 func (s *Solver) propagateAndSearch(lit Lit, lvl decLevel) Status {
 	for lit != -1 {
+		// log.Printf("picked %d at lvl %d", lit.Int(), lvl)
 		if conflict := s.unifyLiteral(lit, lvl); conflict == nil { // Pick new branch or restart
 			if s.lbdStats.mustRestart() {
 				s.lbdStats.clear()
@@ -364,19 +352,17 @@ func (s *Solver) propagateAndSearch(lit Lit, lvl decLevel) Status {
 			s.lbdStats.addConflict(len(s.trail))
 			learnt, unit := s.learnClause(conflict, lvl)
 			if learnt == nil { // Unit clause was learned: this lit is known for sure
+				if unit == -1 || (abs(s.model[unit.Var()]) == 1 && s.litStatus(unit) == Unsat) { // Top-level conflict
+					return s.setUnsat()
+				}
 				s.Stats.NbUnitLearned++
 				s.lbdStats.addLbd(1)
 				s.cleanupBindings(1)
 				s.addLearnedUnit(unit)
 				s.model[unit.Var()] = lvlToSignedLvl(unit, 1)
 				if conflict = s.unifyLiteral(unit, 1); conflict != nil { // top-level conflict
-					if s.Certified {
-						fmt.Printf("0\n")
-					}
-					s.status = Unsat
-					return Unsat
+					return s.setUnsat()
 				}
-				// s.rmSatClauses()
 				s.rebuildOrderHeap()
 				lit = s.chooseLit()
 				lvl = 2
@@ -395,6 +381,19 @@ func (s *Solver) propagateAndSearch(lit Lit, lvl decLevel) Status {
 		}
 	}
 	return Sat
+}
+
+// Sets the status to unsat and do cleanup tasks.
+func (s *Solver) setUnsat() Status {
+	if s.Certified {
+		if s.CertChan == nil {
+			fmt.Printf("0\n")
+		} else {
+			s.CertChan <- "0"
+		}
+	}
+	s.status = Unsat
+	return Unsat
 }
 
 // Searches until a restart is needed.
@@ -460,6 +459,26 @@ func (s *Solver) Solve() Status {
 	return s.status
 }
 
+// Assume adds unit literals to the solver.
+// This is useful when calling the solver several times, e.g to keep it "hot" while removing clauses.
+func (s *Solver) Assume(lits []Lit) Status {
+	s.cleanupBindings(0)
+	s.trail = s.trail[:0]
+	s.assumptions = make([]bool, s.nbVars)
+	for _, lit := range lits {
+		s.addLearnedUnit(lit)
+		s.assumptions[lit.Var()] = true
+		s.trail = append(s.trail, lit)
+	}
+	s.status = Indet
+	if confl := s.propagate(0, 1); confl != nil {
+		// Conflict after unit propagation
+		s.status = Unsat
+		return s.status
+	}
+	return s.status
+}
+
 // Enumerate returns the total number of models for the given problems.
 // if "models" is non-nil, it will write models on it as soon as it discovers them.
 // models will be closed at the end of the method.
@@ -479,10 +498,11 @@ func (s *Solver) Enumerate(models chan []bool, stop chan struct{}) int {
 			}
 		}
 		if s.status == Sat {
-			nb++
+			copy(s.lastModel, s.model)
 			if models != nil {
-				copy(s.lastModel, s.model)
-				models <- s.Model()
+				nb += s.addCurrentModels(models)
+			} else {
+				nb += s.countCurrentModels()
 			}
 			s.status = Indet
 			lits := s.decisionLits()
@@ -548,7 +568,8 @@ func (s *Solver) CountModels() int {
 			}
 		}
 		if s.status == Sat {
-			nb++
+			s.lastModel = s.model
+			nb += s.countCurrentModels()
 			if s.Verbose {
 				fmt.Printf("c found %d model(s)\n", nb)
 			}
@@ -700,6 +721,52 @@ func (s *Solver) Model() []bool {
 	return res
 }
 
+// addCurrentModels is called when a model was found.
+// It returns the total number of models from this point, and sends all models on ch.
+// The number can be different of 1 if there are unbound variables.
+// For instance, if there are 4 variables in the problem and only 1, 3 and 4 are bound,
+// there are actually 2 models currently: one with 2 set to true, the other with 2 set to false.
+func (s *Solver) addCurrentModels(ch chan []bool) int {
+	unbound := make([]int, 0, s.nbVars) // indices of unbound variables
+	var nb uint64 = 1                   // total number of models found
+	model := make([]bool, s.nbVars)     // partial model
+	for i, lvl := range s.lastModel {
+		if lvl == 0 {
+			unbound = append(unbound, i)
+			nb *= 2
+		} else {
+			model[i] = lvl > 0
+		}
+	}
+	for i := uint64(0); i < nb; i++ {
+		for j := range unbound {
+			mask := uint64(1 << j)
+			cur := i & mask
+			idx := unbound[j]
+			model[idx] = cur != 0
+		}
+		model2 := make([]bool, len(model))
+		copy(model2, model)
+		ch <- model2
+	}
+	return int(nb)
+}
+
+// countCurrentModels is called when a model was found.
+// It returns the total number of models from this point.
+// The number can be different of 1 if there are unbound variables.
+// For instance, if there are 4 variables in the problem and only 1, 3 and 4 are bound,
+// there are actually 2 models currently: one with 2 set to true, the other with 2 set to false.
+func (s *Solver) countCurrentModels() int {
+	var nb uint64 = 1 // total number of models found
+	for _, lvl := range s.lastModel {
+		if lvl == 0 {
+			nb *= 2
+		}
+	}
+	return int(nb)
+}
+
 // Optimal returns the optimal solution, if any.
 // If results is non-nil, all solutions will be written to it.
 // In any case, results will be closed at the end of the call.
@@ -736,13 +803,13 @@ func (s *Solver) Optimal(results chan Result, stop chan struct{}) (res Result) {
 			maxCost += w
 		}
 	}
-	s.asumptions = make([]Lit, len(s.minLits))
+	s.hypothesis = make([]Lit, len(s.minLits))
 	for i, lit := range s.minLits {
-		s.asumptions[i] = lit.Negation()
+		s.hypothesis[i] = lit.Negation()
 	}
 	weights := make([]int, len(s.minWeights))
 	copy(weights, s.minWeights)
-	sort.Sort(wLits{lits: s.asumptions, weights: weights})
+	sort.Sort(wLits{lits: s.hypothesis, weights: weights})
 	s.lastModel = make(Model, len(s.model))
 	var cost int
 	for status == Sat {
@@ -771,7 +838,7 @@ func (s *Solver) Optimal(results chan Result, stop chan struct{}) (res Result) {
 		// Add a constraint incrementing current best cost
 		lits2 := make([]Lit, len(s.minLits))
 		weights2 := make([]int, len(s.minWeights))
-		copy(lits2, s.asumptions)
+		copy(lits2, s.hypothesis)
 		copy(weights2, weights)
 		s.AppendClause(NewPBClause(lits2, weights2, maxCost-cost+1))
 		s.rebuildOrderHeap()
@@ -801,13 +868,13 @@ func (s *Solver) Minimize() int {
 			maxCost += w
 		}
 	}
-	s.asumptions = make([]Lit, len(s.minLits))
+	s.hypothesis = make([]Lit, len(s.minLits))
 	for i, lit := range s.minLits {
-		s.asumptions[i] = lit.Negation()
+		s.hypothesis[i] = lit.Negation()
 	}
 	weights := make([]int, len(s.minWeights))
 	copy(weights, s.minWeights)
-	sort.Sort(wLits{lits: s.asumptions, weights: weights})
+	sort.Sort(wLits{lits: s.hypothesis, weights: weights})
 	s.lastModel = make(Model, len(s.model))
 	var cost int
 	for status == Sat {
@@ -831,7 +898,7 @@ func (s *Solver) Minimize() int {
 		// Add a constraint incrementing current best cost
 		lits2 := make([]Lit, len(s.minLits))
 		weights2 := make([]int, len(s.minWeights))
-		copy(lits2, s.asumptions)
+		copy(lits2, s.hypothesis)
 		copy(weights2, weights)
 		s.AppendClause(NewPBClause(lits2, weights2, maxCost-cost+1))
 		s.rebuildOrderHeap()
@@ -840,7 +907,7 @@ func (s *Solver) Minimize() int {
 	return cost
 }
 
-// functions to sort asumptions for pseudo-boolean minimization clause.
+// functions to sort hypothesis for pseudo-boolean minimization clause.
 type wLits struct {
 	lits    []Lit
 	weights []int

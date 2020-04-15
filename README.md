@@ -18,10 +18,32 @@ solvers (namely, [glucose](http://www.labri.fr/perso/lsimon/glucose/) or
 [minisat](http://minisat.se/)) from which it is strongly inspired.
 It can also solve MAXSAT problems, and pseudo-boolean decision and optimization problems.
 
+
+## Version 1.2: Explainable AI: UNSAT certification, MUS extraction
+
+Gophersat's last stable version is version 1.2. It now includes a way to understand UNSAT instances, both by providing RUP certificates when a problem is UNSAT and by providing the ability to extract unsatisfiable subsets of the formula. A vew bugs were also corected, and the support for incremental SAT solving was improved.
+
+To learn more about these functionalities, you can check the [tutorial about UNSAT certificates and MUSes](mus.md).
+
+To generate a certificate with the gophersat executable, simply call:
+
+    gophersat -certified problem.cnf
+
+The certificate will then be printed on the standard output, using the RUP notation. The certificate is generated on the fly, so be aware that a partial, useless certificate will be generated even if the problem is actually satisfiable. This is common practice in the community, and although the generated clauses are useless noise, in practice this is not a problem.
+
+To extract a MUS from an UNSAT instance, just call:
+
+    gophersat -mus problem.cnf
+
+The MUS will the be printed on the standard output. If the problem is not UNSAT, an error message will be displayed.
+
+For the moment, these facilities are only available for pure SAT problems (i.e not pseudo-boolean problems).
+
+
 ## Version 1.1
 
-Gophersat's last stable version is version 1.1. It includes a new, more efficient core solver for pure SAT problems
-and a package for dealing with MAXSAT problems. It also includes a new API for optimization and model counting,
+Since its version 1.1, Gophersat includes a new, more efficient core solver for pure SAT problems
+and a package dealing with MAXSAT problems. It also includes a new API for optimization and model counting,
 where new models are written to channels as soon as they are found.
 
 ### About version numbers in Gophersat

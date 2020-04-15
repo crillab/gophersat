@@ -198,6 +198,55 @@ func ExampleParseCardConstrs() {
 	// Problem is not satisfiable
 }
 
+func TestAssume(t *testing.T) {
+	clauses := [][]int{
+		{1, 2, 3},
+		{1, -2, 4},
+		{-1, 2, 5},
+		{-1, -2, 6},
+	}
+	s := New(ParseSlice(clauses))
+	if s.Solve() == Unsat {
+		t.Fatalf("should not be unsat")
+	}
+	asumptions := []Lit{IntToLit(-3), IntToLit(-4), IntToLit(-5), IntToLit(-6)}
+	s.Assume(asumptions)
+	if s.Solve() != Unsat {
+		t.Fatalf("all clauses are activated because of asumptions, should now be unsat")
+	}
+	asumptions[0] = asumptions[0].Negation()
+	s.Assume(asumptions)
+	if s.Solve() == Unsat {
+		t.Fatalf("one of the clause is deactivated through asumptions, should now be sat")
+	}
+	cnf := `p cnf 12 6
+	2 5 7 0
+	6 8 0
+	2 -5 9 0
+	-1 -2 10 0
+	1 3 11 0
+	1 -3 12 0
+	`
+	pb, err := ParseCNF(strings.NewReader(cnf))
+	if err != nil {
+		t.Fatalf("could not parse problem %v", err)
+	}
+	s = New(pb)
+	if s.Solve() == Unsat {
+		t.Fatalf("should not be unsat")
+	}
+	asumptions = []Lit{IntToLit(-7), IntToLit(-8), IntToLit(-9), IntToLit(-10), IntToLit(-11), IntToLit(-12)}
+	s.Assume(asumptions)
+	if s.Solve() != Unsat {
+		t.Fatalf("all clauses are activated because of asumptions, should now be unsat")
+	}
+	asumptions = []Lit{IntToLit(-7), IntToLit(8), IntToLit(-9), IntToLit(-10), IntToLit(-11), IntToLit(-12)}
+	s.Assume(asumptions)
+	if s.Solve() != Unsat {
+		t.Fatalf("should still be unsat, got %v", s.Model())
+	}
+}
+
 func TestCountModel(t *testing.T) {
 	clauses := []CardConstr{
 		AtLeast1(1, 2, 3),

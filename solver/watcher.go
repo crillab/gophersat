@@ -157,7 +157,11 @@ func (s *Solver) addLearned(c *Clause) {
 	s.watchClause(c)
 	s.clauseBumpActivity(c)
 	if s.Certified {
-		fmt.Printf("%s\n", c.CNF())
+		if s.CertChan == nil {
+			fmt.Printf("%s\n", c.CNF())
+		} else {
+			s.CertChan <- c.CNF()
+		}
 	}
 }
 
@@ -165,7 +169,11 @@ func (s *Solver) addLearned(c *Clause) {
 func (s *Solver) addLearnedUnit(unit Lit) {
 	s.model[unit.Var()] = lvlToSignedLvl(unit, 1)
 	if s.Certified {
-		fmt.Printf("%d 0\n", unit.Int())
+		if s.CertChan == nil {
+			fmt.Printf("%d 0\n", unit.Int())
+		} else {
+			s.CertChan <- fmt.Sprintf("%d 0", unit.Int())
+		}
 	}
 }
 

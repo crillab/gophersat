@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/crillab/gophersat/bf"
+	"github.com/crillab/gophersat/explain"
 	"github.com/crillab/gophersat/maxsat"
 	"github.com/crillab/gophersat/solver"
 )
@@ -19,48 +20,74 @@ func main() {
 	var (
 		verbose bool
 		cert    bool
+		mus     bool
 		count   bool
 		help    bool
 	)
 	flag.BoolVar(&verbose, "verbose", false, "sets verbose mode on")
 	flag.BoolVar(&cert, "certified", false, "displays RUP certificate on stdout")
+	flag.BoolVar(&mus, "mus", false, "extracts a MUS from an unsat problem")
 	flag.BoolVar(&count, "count", false, "rather than solving the problem, counts the number of models it accepts")
 	flag.BoolVar(&help, "help", false, "displays help")
 	flag.Parse()
 	if !help && len(flag.Args()) != 1 {
-		fmt.Printf("This is gophersat version 1.1.9, a SAT and Pseudo-Boolean solver by Fabien Delorme.\n")
+		fmt.Printf("This is gophersat version 1.2, a SAT and Pseudo-Boolean solver by Fabien Delorme.\n")
 		fmt.Fprintf(os.Stderr, "Syntax : %s [options] (file.cnf|file.wcnf|file.bf|file.opb)\n", os.Args[0])
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
 	if help {
-		fmt.Printf("This is gophersat version 1.1.9, a SAT and Pseudo-Boolean solver by Fabien Delorme.\n")
+		fmt.Printf("This is gophersat version 1.2, a SAT and Pseudo-Boolean solver by Fabien Delorme.\n")
 		fmt.Printf("Syntax : %s [options] (file.cnf|file.wcnf|file.bf|file.opb)\n", os.Args[0])
 		flag.PrintDefaults()
 		os.Exit(0)
 	}
 	path := flag.Args()[0]
-	fmt.Printf("c solving %s\n", path)
-	if strings.HasSuffix(path, ".bf") {
-		if err := parseAndSolveBF(path); err != nil {
-			fmt.Fprintf(os.Stderr, "could not parse formula: %v\n", err)
-			os.Exit(1)
-		}
-	} else if strings.HasSuffix(path, ".wcnf") {
-		if err := parseAndSolveWCNF(path, verbose); err != nil {
-			fmt.Fprintf(os.Stderr, "could not parse MAXSAT file %q: %v", path, err)
-			os.Exit(1)
-		}
+	if mus {
+		extractMUS(path)
 	} else {
-		if pb, printFn, err := parse(flag.Args()[0]); err != nil {
-			fmt.Fprintf(os.Stderr, "could not parse problem: %v\n", err)
-			os.Exit(1)
-		} else if count {
-			countModels(pb, verbose)
+		fmt.Printf("c solving %s\n", path)
+		if strings.HasSuffix(path, ".bf") {
+			if err := parseAndSolveBF(path); err != nil {
+				fmt.Fprintf(os.Stderr, "could not parse formula: %v\n", err)
+				os.Exit(1)
+			}
+		} else if strings.HasSuffix(path, ".wcnf") {
+			if err := parseAndSolveWCNF(path, verbose); err != nil {
+				fmt.Fprintf(os.Stderr, "could not parse MAXSAT file %q: %v", path, err)
+				os.Exit(1)
+			}
 		} else {
-			solve(pb, verbose, cert, printFn)
+			if pb, printFn, err := parse(flag.Args()[0]); err != nil {
+				fmt.Fprintf(os.Stderr, "could not parse problem: %v\n", err)
+				os.Exit(1)
+			} else if count {
+				countModels(pb, verbose)
+			} else {
+				solve(pb, verbose, cert, printFn)
+			}
 		}
 	}
+}
+
+func extractMUS(path string) {
+	f, err := os.Open(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "could not parse problem: %v\n", err)
+		os.Exit(1)
+	}
+	defer f.Close()
+	pb, err := explain.ParseCNF(f)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "could not parse problem: %v\n", err)
+		os.Exit(1)
+	}
+	pb2, err := pb.MUS()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "could not extract subset: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println(pb2.CNF())
 }
 
 func countModels(pb *solver.Problem, verbose bool) {

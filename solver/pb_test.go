@@ -143,6 +143,25 @@ func TestPBTrivial(t *testing.T) {
 	}
 }
 
+func TestEnumeratePB(t *testing.T) {
+	pb1 := AtMost([]int{1, 2, 3, 4}, 3)
+	pb2 := AtLeast([]int{1, 2, 3, 4}, 2)
+	pb3 := GtEq([]int{2, 3, 4}, []int{1, 1, 2}, 3)
+	pb := ParsePBConstrs([]PBConstr{pb1, pb2, pb3})
+	s := New(pb)
+	if nb := s.CountModels(); nb != 5 {
+		t.Errorf("first pb: expected 5 models, got %d", nb)
+		t.Errorf("%s", pb.PBString())
+	}
+	pb4 := GtEq([]int{1, 2, 4}, []int{1, 2, 1}, 3)
+	pb = ParsePBConstrs([]PBConstr{pb1, pb2, pb4})
+	s = New(pb)
+	if nb := s.CountModels(); nb != 5 {
+		t.Errorf("second pb: expected 5 models, got %d", nb)
+		t.Errorf("%s", pb.PBString())
+	}
+}
+
 func TestPB(t *testing.T) {
 	clauses := []PBConstr{
 		GtEq([]int{1, 2, 3}, []int{2, 1, 1}, 2),

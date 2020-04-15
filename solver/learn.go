@@ -29,7 +29,7 @@ func (s *Solver) addClauseLits(confl *Clause, lvl decLevel, met, metLvl []bool, 
 		if abs(s.model[v]) == lvl {
 			metLvl[v] = true
 			nbLvl++
-		} else if abs(s.model[v]) != 1 {
+		} else {
 			*lits = append(*lits, l)
 		}
 	}
@@ -39,8 +39,9 @@ func (s *Solver) addClauseLits(confl *Clause, lvl decLevel, met, metLvl []bool, 
 var bufLits = make([]Lit, 10000) // Buffer for lits in learnClause. Used to reduce allocations.
 
 // learnClause creates a conflict clause and returns either:
-// the clause itself, if its len is at least 2.
-// a nil clause and a unit literal, if its len is exactly 1.
+// - the clause itself, if its len is at least 2,
+// - a nil clause and a unit literal, if its len is exactly 1,
+// - a nil clause and -1, if the empty clause was learned.
 func (s *Solver) learnClause(confl *Clause, lvl decLevel) (learned *Clause, unit Lit) {
 	s.clauseBumpActivity(confl)
 	lits := bufLits[:1]             // Not 0: make room for asserting literal
@@ -58,6 +59,10 @@ func (s *Solver) learnClause(confl *Clause, lvl decLevel) (learned *Clause, unit
 			ptr--
 		}
 		v := s.trail[ptr].Var()
+		if s.assumptions[v] {
+			// Now we only have assumed lits: this is a top-level conflict
+			return nil, -1
+		}
 		ptr--
 		nbLvl--
 		if reason := s.reason[v]; reason != nil {
@@ -65,7 +70,7 @@ func (s *Solver) learnClause(confl *Clause, lvl decLevel) (learned *Clause, unit
 			for i := 0; i < reason.Len(); i++ {
 				lit := reason.Get(i)
 				if v2 := lit.Var(); !met[v2] {
-					if s.litStatus(lit) != Unsat {
+					if s.litStatus(lit) != Unsat { // In clauses where cardinality > 1, some lits might be true in the conflict clause: ignore them
 						continue
 					}
 					met[v2] = true
@@ -73,7 +78,7 @@ func (s *Solver) learnClause(confl *Clause, lvl decLevel) (learned *Clause, unit
 					if abs(s.model[v2]) == lvl {
 						metLvl[v2] = true
 						nbLvl++
-					} else if abs(s.model[v2]) != 1 {
+					} else {
 						lits = append(lits, lit)
 					}
 				}
@@ -109,7 +114,7 @@ func (s *Solver) minimizeLearned(met []bool, learned []Lit) int {
 		} else {
 			for k := 0; k < reason.Len(); k++ {
 				lit := reason.Get(k)
-				if !met[lit.Var()] && abs(s.model[lit.Var()]) > 1 {
+				if !met[lit.Var()] /*&& abs(s.model[lit.Var()]) > 1*/ {
 					learned[sz] = learned[i]
 					sz++
 					break

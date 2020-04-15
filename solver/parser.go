@@ -12,11 +12,25 @@ import (
 // The argument is supposed to be a well-formed CNF.
 func ParseSlice(cnf [][]int) *Problem {
 	var pb Problem
+	pb.parseSlice(cnf)
+	return &pb
+}
+
+// ParseSliceNb parse a slice of slice of lits and returns the equivalent problem.
+// The argument is supposed to be a well-formed CNF.
+// The number of vars is provided because clauses might be added to it later.
+func ParseSliceNb(cnf [][]int, nbVars int) *Problem {
+	pb := Problem{NbVars: nbVars}
+	pb.parseSlice(cnf)
+	return &pb
+}
+
+func (pb *Problem) parseSlice(cnf [][]int) {
 	for _, line := range cnf {
 		switch len(line) {
 		case 0:
 			pb.Status = Unsat
-			return &pb
+			return
 		case 1:
 			if line[0] == 0 {
 				panic("null unit clause")
@@ -31,7 +45,7 @@ func ParseSlice(cnf [][]int) *Problem {
 			lits := make([]Lit, len(line))
 			for j, val := range line {
 				if val == 0 {
-					panic("null literal in clause %q")
+					panic(fmt.Sprintf("null literal in clause %v", lits))
 				}
 				lits[j] = IntToLit(int32(val))
 				if v := int(lits[j].Var()); v >= pb.NbVars {
@@ -52,11 +66,10 @@ func ParseSlice(cnf [][]int) *Problem {
 			}
 		} else if pb.Model[v] > 0 != unit.IsPositive() {
 			pb.Status = Unsat
-			return &pb
+			return
 		}
 	}
 	pb.simplify2()
-	return &pb
 }
 
 func isSpace(b byte) bool {
