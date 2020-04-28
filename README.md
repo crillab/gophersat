@@ -236,10 +236,3 @@ You can also count models from command line, with
     gophersat --count filename
 
 where filename can be a .opb or a .cnf file.
-
-## What else does it feature?
-For the moment, not very much. It does not
-propose incremental SAT solving, MUS extraction, UNSAT certification
-and the like. It does not even feature a preprocessor.
-
-But all those features might come later. Feel free to ask for features.
