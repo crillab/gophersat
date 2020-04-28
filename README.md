@@ -19,9 +19,14 @@ solvers (namely, [glucose](http://www.labri.fr/perso/lsimon/glucose/) or
 It can also solve MAXSAT problems, and pseudo-boolean decision and optimization problems.
 
 
+## Version 1.3
+
+Gophersat's last stable version is version 1.3. It is a minor update, adding the ability to access the underlying solver when dealing with MAXSAT problems.
+
+
 ## Version 1.2: Explainable AI: UNSAT certification, MUS extraction
 
-Gophersat's last stable version is version 1.2. It now includes a way to understand UNSAT instances, both by providing RUP certificates when a problem is UNSAT and by providing the ability to extract unsatisfiable subsets of the formula. A vew bugs were also corected, and the support for incremental SAT solving was improved.
+Gophersat version 1.2 includes a way to understand UNSAT instances, both by providing RUP certificates when a problem is UNSAT and by providing the ability to extract unsatisfiable subsets of the formula. A vew bugs were also corected, and the support for incremental SAT solving was improved.
 
 To learn more about these functionalities, you can check the [tutorial about UNSAT certificates and MUSes](mus.md).
 
