@@ -75,6 +75,13 @@ func (pb *Problem) Output() {
 	fmt.Println(pb.solver.PBString())
 }
 
+// Solver gives access to the solver.Solver used to solve the MAXSAT problem.
+// Unless you have specific needs, youè will usually not need to call this method,
+// and rather want to call pb.Solve() instead.
+func (pb *Problem) Solver() *solver.Solver {
+	return pb.solver
+}
+
 // Solve returns an optimal Model for the problem and the associated cost.
 // If the model is nil, the problem was not satisfiable (i.e hard clauses could not be satisfied).
 func (pb *Problem) Solve() (Model, int) {
