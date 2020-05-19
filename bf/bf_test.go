@@ -6,6 +6,40 @@ import (
 	"testing"
 )
 
+func TestIdentityAnd(t *testing.T) {
+	f1 := And(And(Var("x")))
+	f2 := And(And(), And(Var("x")))
+	m := map[string]bool{"x": true}
+	if f1.Eval(m) != f2.Eval(m) {
+		t.Fail()
+	}
+}
+
+func TestEmptyAnd(t *testing.T) {
+	f1 := And()
+	m := map[string]bool{}
+	if !f1.Eval(m) {
+		t.Fail()
+	}
+}
+
+func TestIdentityOr(t *testing.T) {
+	f1 := Or(Or(Var("x")))
+	f2 := Or(Or(), Or(Var("x")))
+	m := map[string]bool{"x": false}
+	if f1.Eval(m) != f2.Eval(m) {
+		t.Fail()
+	}
+}
+
+func TestEmptyOr(t *testing.T) {
+	f1 := Or()
+	m := map[string]bool{}
+	if f1.Eval(m) {
+		t.Fail()
+	}
+}
+
 func TestCNF(t *testing.T) {
 	f := And(Or(Var("a"), Var("b")), Var("i"), Or(Var("g"), Var("h"), And(Var("c"), Or(Var("d"), Var("e")), Var("f"))))
 	model := Solve(f)
