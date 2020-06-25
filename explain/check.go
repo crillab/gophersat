@@ -44,6 +44,7 @@ func (pb *Problem) UnsatChan(ch chan string) (valid bool, err error) {
 	defer pb.restore()
 	pb.initTagged()
 	for line := range ch {
+
 		fields := strings.Fields(line)
 		if len(fields) == 0 {
 			continue
@@ -66,7 +67,11 @@ func (pb *Problem) UnsatChan(ch chan string) (valid bool, err error) {
 		// Since clause is a logical consequence, append it to the problem
 		pb.Clauses = append(pb.Clauses, clause)
 	}
-	return false, nil
+
+	// If we did not send any information through the channel
+	// It implies that the problem is trivially unsatisfiable
+	// Since we had only unit clauses inside the channel.
+	return true, nil
 }
 
 // Unsat will parse a certificate, and return true iff the certificate is valid, i.e iff it makes the problem UNSAT
