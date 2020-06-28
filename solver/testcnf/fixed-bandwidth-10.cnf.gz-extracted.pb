@@ -6,7 +6,7 @@
 * semantic detection: 1
 * found constraints: 40
 * parsing and detection tool 0 seconds
-* used command line:  github.com/Mystelven/gophersat/cupacd-core -pb_dump=ProofComplexity/fixed-bandwidth-10.cnf.gz-extracted.pb /projects/p_sat/CNF/WithoutSource/ProofComplexity/fixed-bandwidth-10.cnf.gz -card-Elimit=50000000 -card-Ylimit=50000000
+* used command line:  ./cupacd-core -pb_dump=ProofComplexity/fixed-bandwidth-10.cnf.gz-extracted.pb /projects/p_sat/CNF/WithoutSource/ProofComplexity/fixed-bandwidth-10.cnf.gz -card-Elimit=50000000 -card-Ylimit=50000000
 1 x1 +1 x2 +1 x3 +1 x4 +1 x5  >= 3 ;
 -1 x1 -1 x14 -1 x30 -1 x38  >= -2 ;
 -1 x2 -1 x6 -1 x18 -1 x34  >= -2 ;
