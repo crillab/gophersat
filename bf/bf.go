@@ -230,6 +230,8 @@ func (a and) String() string {
 }
 
 func (a and) Eval(model map[string]bool) (res bool) {
+	res = true
+
 	for i, s := range a {
 		b := s.Eval(model)
 		if i == 0 {
