@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"../solver"
+	"github.com/Mystelven/gophersat/solver"
 )
 
 // A Solver is a [partial][weighted] MAXSAT solver.

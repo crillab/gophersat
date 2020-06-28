@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"../solver"
+	"github.com/Mystelven/gophersat/solver"
 )
 
 func TestUnsat(t *testing.T) {
