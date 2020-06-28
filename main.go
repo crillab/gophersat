@@ -8,10 +8,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Mystelven/gophersat/bf"
-	"github.com/Mystelven/gophersat/explain"
-	"github.com/Mystelven/gophersat/maxsat"
-	"github.com/Mystelven/gophersat/solver"
+	"github.com/crillab/gophersat/bf"
+	"github.com/crillab/gophersat/explain"
+	"github.com/crillab/gophersat/maxsat"
+	"github.com/crillab/gophersat/solver"
 )
 
 func main() {

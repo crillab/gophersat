@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Mystelven/gophersat/solver"
+	"github.com/crillab/gophersat/solver"
 )
 
 // Options is a set of options that can be set to true during the checking process.

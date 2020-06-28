@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Mystelven/gophersat/solver"
+	"github.com/crillab/gophersat/solver"
 )
 
 func ExampleInstanceIsAMUS() {

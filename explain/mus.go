@@ -3,7 +3,7 @@ package explain
 import (
 	"fmt"
 
-	"github.com/Mystelven/gophersat/solver"
+	"github.com/crillab/gophersat/solver"
 )
 
 // MUSMaxSat returns a Minimal Unsatisfiable Subset for the problem using the MaxSat strategy.
