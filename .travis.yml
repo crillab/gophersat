@@ -4,8 +4,8 @@ go:
   - master
 script:
   - go build github.com/crillab/gophersat
-  - go test github.com/crillab/gophersat/solver
-  - go test github.com/crillab/gophersat/bf
-  - go test github.com/crillab/gophersat/maxsat
+  - go test ./solver
+  - go test ./bf
+  - go test ./maxsat
 
 

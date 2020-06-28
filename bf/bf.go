@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/crillab/gophersat/solver"
+	"../solver"
 )
 
 // A Formula is any kind of boolean formula, not necessarily in CNF.
