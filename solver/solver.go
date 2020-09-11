@@ -100,7 +100,7 @@ func New(problem *Problem) *Solver {
 		nbVars:      nbVars,
 		status:      problem.Status,
 		trail:       make([]Lit, len(problem.Units), trailCap),
-		model:       make([]decLevel, nbVars),
+		model:       problem.Model,
 		activity:    make([]float64, nbVars),
 		polarity:    make([]bool, nbVars),
 		assumptions: make([]bool, nbVars),

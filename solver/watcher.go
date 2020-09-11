@@ -167,6 +167,11 @@ func (s *Solver) addLearned(c *Clause) {
 
 // Adds the given unit literal to the model at the top level.
 func (s *Solver) addLearnedUnit(unit Lit) {
+
+	if len(s.model) < unit.Var() {
+		return
+	}
+
 	s.model[unit.Var()] = lvlToSignedLvl(unit, 1)
 	if s.Certified {
 		if s.CertChan == nil {
