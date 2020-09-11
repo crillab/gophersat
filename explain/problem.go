@@ -12,14 +12,14 @@ import (
 type Problem struct {
 	Clauses   [][]int
 	NbVars    int
-	nbClauses int
+	NbClauses int
 	units     []int // For each var, 0 if the var is unbound, 1 if true, -1 if false
 	Options   Options
 	tagged    []bool // List of claused used whil proving the problem is unsat. Initialized lazily
 }
 
 func (pb *Problem) initTagged() {
-	pb.tagged = make([]bool, pb.nbClauses)
+	pb.tagged = make([]bool, pb.NbClauses)
 	for i, clause := range pb.Clauses {
 		// Unit clauses are tagged as they will probably be used during resolution
 		pb.tagged[i] = len(clause) == 1
@@ -28,9 +28,9 @@ func (pb *Problem) initTagged() {
 
 func (pb *Problem) clone() *Problem {
 	pb2 := &Problem{
-		Clauses:   make([][]int, pb.nbClauses),
+		Clauses:   make([][]int, pb.NbClauses),
 		NbVars:    pb.NbVars,
-		nbClauses: pb.nbClauses,
+		NbClauses: pb.NbClauses,
 		units:     make([]int, pb.NbVars),
 	}
 	copy(pb2.units, pb.units)
@@ -43,7 +43,7 @@ func (pb *Problem) clone() *Problem {
 
 // restore removes all learned clauses, if any.
 func (pb *Problem) restore() {
-	pb.Clauses = pb.Clauses[:pb.nbClauses]
+	pb.Clauses = pb.Clauses[:pb.NbClauses]
 }
 
 // unsat will be true iff the problem can be proven unsat through unit propagation.
@@ -84,7 +84,7 @@ func (pb *Problem) unsat() bool {
 			}
 			if unbound == 0 {
 				// All lits are false: problem is UNSAT
-				if i < pb.nbClauses {
+				if i < pb.NbClauses {
 					pb.tagged[i] = true
 				}
 				return true
@@ -96,7 +96,7 @@ func (pb *Problem) unsat() bool {
 					pb.units[unit-1] = 1
 				}
 				done[i] = true
-				if i < pb.nbClauses {
+				if i < pb.NbClauses {
 					pb.tagged[i] = true
 				}
 				modified = true
@@ -109,9 +109,9 @@ func (pb *Problem) unsat() bool {
 
 // CNF returns a representation of the problem using the Dimacs syntax.
 func (pb *Problem) CNF() string {
-	lines := make([]string, 1, pb.nbClauses+1)
-	lines[0] = fmt.Sprintf("p cnf %d %d", pb.NbVars, pb.nbClauses)
-	for i := 0; i < pb.nbClauses; i++ {
+	lines := make([]string, 1, pb.NbClauses+1)
+	lines[0] = fmt.Sprintf("p cnf %d %d", pb.NbVars, pb.NbClauses)
+	for i := 0; i < pb.NbClauses; i++ {
 		clause := pb.Clauses[i]
 		strClause := make([]string, len(clause)+1)
 		for i, lit := range clause {

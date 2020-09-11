@@ -67,14 +67,14 @@ func (pb *Problem) parseHeader(fields []string) error {
 		return fmt.Errorf("negative number of vars %d", pb.NbVars)
 	}
 	pb.units = make([]int, pb.NbVars)
-	pb.nbClauses, err = strconv.Atoi(fields[3])
+	pb.NbClauses, err = strconv.Atoi(fields[3])
 	if err != nil {
 		return fmt.Errorf("invalid number of clauses %s: %v", strClauses, err)
 	}
-	if pb.nbClauses < 0 {
-		return fmt.Errorf("negative number of clauses %d", pb.nbClauses)
+	if pb.NbClauses < 0 {
+		return fmt.Errorf("negative number of clauses %d", pb.NbClauses)
 	}
-	pb.Clauses = make([][]int, 0, pb.nbClauses)
+	pb.Clauses = make([][]int, 0, pb.NbClauses)
 	return nil
 }
 

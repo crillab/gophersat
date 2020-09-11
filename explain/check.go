@@ -136,7 +136,7 @@ func (pb *Problem) UnsatSubset() (subset *Problem, err error) {
 		if pb.tagged[i] {
 			// clause was used to prove pb is UNSAT: it's part of the subset
 			subset.Clauses = append(subset.Clauses, clause)
-			subset.nbClauses++
+			subset.NbClauses++
 		}
 	}
 	return subset, nil

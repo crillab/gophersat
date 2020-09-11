@@ -15,9 +15,9 @@ import (
 func (pb *Problem) MUSMaxSat() (mus *Problem, err error) {
 	pb2 := pb.clone()
 	nbVars := pb2.NbVars
-	nbClauses := pb2.nbClauses
-	weights := make([]int, nbClauses)          // Weights of each clause
-	relaxLits := make([]solver.Lit, nbClauses) // Set of all relax lits
+	NbClauses := pb2.NbClauses
+	weights := make([]int, NbClauses)          // Weights of each clause
+	relaxLits := make([]solver.Lit, NbClauses) // Set of all relax lits
 	relaxLit := nbVars + 1                     // Index of last used relax lit
 	for i, clause := range pb2.Clauses {
 		pb2.Clauses[i] = append(clause, relaxLit)
@@ -30,7 +30,7 @@ func (pb *Problem) MUSMaxSat() (mus *Problem, err error) {
 	s := solver.New(prob)
 	s.Verbose = pb.Options.Verbose
 	var musClauses [][]int
-	done := make([]bool, nbClauses) // Indicates whether a clause is already part of MUS or not yet
+	done := make([]bool, NbClauses) // Indicates whether a clause is already part of MUS or not yet
 	for {
 		cost := s.Minimize()
 		if cost == -1 {
@@ -44,7 +44,7 @@ func (pb *Problem) MUSMaxSat() (mus *Problem, err error) {
 			if !done[i] && !satClause(clause, model) {
 				// The clause is part of the MUS
 				pb2.Clauses = append(pb2.Clauses, []int{-(nbVars + i + 1)}) // Now, relax lit has to be false
-				pb2.nbClauses++
+				pb2.NbClauses++
 				musClauses = append(musClauses, clause)
 				done[i] = true
 				// Make it a hard clause before restarting solver
@@ -56,7 +56,7 @@ func (pb *Problem) MUSMaxSat() (mus *Problem, err error) {
 			}
 		}
 		if pb.Options.Verbose {
-			fmt.Printf("c Currently %d/%d clauses in MUS\n", len(musClauses), nbClauses)
+			fmt.Printf("c Currently %d/%d clauses in MUS\n", len(musClauses), NbClauses)
 		}
 		prob = solver.ParseSlice(pb2.Clauses)
 		prob.SetCostFunc(relaxLits, weights)
@@ -79,7 +79,7 @@ func makeMus(nbVars int, clauses [][]int) *Problem {
 	mus := &Problem{
 		Clauses:   clauses,
 		NbVars:    nbVars,
-		nbClauses: len(clauses),
+		NbClauses: len(clauses),
 		units:     make([]int, nbVars),
 	}
 	for _, clause := range clauses {
@@ -113,7 +113,7 @@ func (pb *Problem) MUSInsertion() (mus *Problem, err error) {
 	clauses := pb2.Clauses
 	for {
 		if pb.Options.Verbose {
-			fmt.Printf("c mus currently contains %d clauses\n", mus.nbClauses)
+			fmt.Printf("c mus currently contains %d clauses\n", mus.NbClauses)
 		}
 		s := solver.New(solver.ParseSliceNb(mus.Clauses, mus.NbVars))
 		s.Verbose = pb.Options.Verbose
@@ -136,7 +136,7 @@ func (pb *Problem) MUSInsertion() (mus *Problem, err error) {
 		}
 		idx--                                           // We went one step too far, go back
 		mus.Clauses = append(mus.Clauses, clauses[idx]) // Last clause is part of the MUS
-		mus.nbClauses++
+		mus.NbClauses++
 		if pb.Options.Verbose {
 			fmt.Printf("c removing %d/%d clause(s)\n", len(clauses)-idx, len(clauses))
 		}
@@ -158,7 +158,7 @@ func (pb *Problem) MUSDeletion() (mus *Problem, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not extract MUS: %v", err)
 	}
-	pb2.NbVars += pb2.nbClauses          // Add one relax var for each clause
+	pb2.NbVars += pb2.NbClauses          // Add one relax var for each clause
 	for i, clause := range pb2.Clauses { // Add relax lit to each clause
 		newClause := make([]int, len(clause)+1)
 		copy(newClause, clause)
@@ -166,8 +166,8 @@ func (pb *Problem) MUSDeletion() (mus *Problem, err error) {
 		pb2.Clauses[i] = newClause
 	}
 	s := solver.New(solver.ParseSlice(pb2.Clauses))
-	asumptions := make([]solver.Lit, pb2.nbClauses)
-	for i := 0; i < pb2.nbClauses; i++ {
+	asumptions := make([]solver.Lit, pb2.NbClauses)
+	for i := 0; i < pb2.NbClauses; i++ {
 		asumptions[i] = solver.IntToLit(int32(-(pb.NbVars + i + 1))) // At first, all asumptions are false
 	}
 	for i := range pb2.Clauses {
@@ -178,10 +178,10 @@ func (pb *Problem) MUSDeletion() (mus *Problem, err error) {
 			// It is now sat; reinsert the clause, i.e re-falsify the relax lit
 			asumptions[i] = asumptions[i].Negation()
 			if pb.Options.Verbose {
-				fmt.Printf("c clause %d/%d: kept\n", i+1, pb2.nbClauses)
+				fmt.Printf("c clause %d/%d: kept\n", i+1, pb2.NbClauses)
 			}
 		} else if pb.Options.Verbose {
-			fmt.Printf("c clause %d/%d: removed\n", i+1, pb2.nbClauses)
+			fmt.Printf("c clause %d/%d: removed\n", i+1, pb2.NbClauses)
 		}
 	}
 	mus = &Problem{
@@ -194,7 +194,7 @@ func (pb *Problem) MUSDeletion() (mus *Problem, err error) {
 			clause = clause[:len(clause)-1] // Remove relax lit
 			mus.Clauses = append(mus.Clauses, clause)
 		}
-		mus.nbClauses = len(mus.Clauses)
+		mus.NbClauses = len(mus.Clauses)
 	}
 	return mus, nil
 }
