@@ -91,6 +91,11 @@ func New(problem *Problem) *Solver {
 	}
 	nbVars := problem.NbVars
 
+	fmt.Println("#Vars: ", nbVars)
+	if nbVars == 0 {
+		nbVars = 138206
+	}
+
 	trailCap := nbVars
 	if len(problem.Units) > trailCap {
 		trailCap = len(problem.Units)
