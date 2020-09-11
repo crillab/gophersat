@@ -465,8 +465,13 @@ func (s *Solver) Assume(lits []Lit) Status {
 	s.cleanupBindings(0)
 	s.trail = s.trail[:0]
 	s.assumptions = make([]bool, s.nbVars)
+
+	fmt.Println("Array of assumption is size: ", len(s.assumptions))
+
 	for _, lit := range lits {
 		s.addLearnedUnit(lit)
+		fmt.Println("We assume the following: ", lit.Var(), " to be true")
+
 		s.assumptions[lit.Var()] = true
 		s.trail = append(s.trail, lit)
 	}
