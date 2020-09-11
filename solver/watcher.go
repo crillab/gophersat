@@ -168,7 +168,7 @@ func (s *Solver) addLearned(c *Clause) {
 // Adds the given unit literal to the model at the top level.
 func (s *Solver) addLearnedUnit(unit Lit) {
 
-	if len(s.model) < unit.Var() {
+	if len(s.model) < int(unit.Var()) {
 		return
 	}
 
