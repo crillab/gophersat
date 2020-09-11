@@ -91,11 +91,6 @@ func New(problem *Problem) *Solver {
 	}
 	nbVars := problem.NbVars
 
-	fmt.Println("#Vars: ", nbVars)
-	if nbVars == 0 {
-		nbVars = 138206
-	}
-
 	trailCap := nbVars
 	if len(problem.Units) > trailCap {
 		trailCap = len(problem.Units)
@@ -471,12 +466,9 @@ func (s *Solver) Assume(lits []Lit) Status {
 	s.trail = s.trail[:0]
 	s.assumptions = make([]bool, s.nbVars)
 
-	fmt.Println("Array of assumption is size: ", len(s.assumptions))
-
 	for _, lit := range lits {
-		s.addLearnedUnit(lit)
-		fmt.Println("We assume the following: ", lit.Var(), " to be true")
 
+		s.addLearnedUnit(lit)
 		s.assumptions[lit.Var()] = true
 		s.trail = append(s.trail, lit)
 	}
