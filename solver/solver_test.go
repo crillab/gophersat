@@ -94,6 +94,33 @@ func TestParseSliceSat(t *testing.T) {
 	}
 }
 
+func TestIntsToLits(t *testing.T) {
+	cnf := [][]int{}
+	pb := ParseSliceNb(cnf, 10)
+	s := New(pb)
+	s.AppendClause(NewClause(IntsToLits(1)))
+	s.AppendClause(NewClause(IntsToLits(-2, 3)))
+	s.AppendClause(NewClause(IntsToLits(-2, 4)))
+	s.AppendClause(NewClause(IntsToLits(-5, 3)))
+	s.AppendClause(NewClause(IntsToLits(-5, 6)))
+	s.AppendClause(NewClause(IntsToLits(-7, 3)))
+	s.AppendClause(NewClause(IntsToLits(-7, 8)))
+	s.AppendClause(NewClause(IntsToLits(-9, 10)))
+	s.AppendClause(NewClause(IntsToLits(-9, 4)))
+	s.AppendClause(NewClause(IntsToLits(-1, 10)))
+	s.AppendClause(NewClause(IntsToLits(-1, 6)))
+	s.AppendClause(NewClause(IntsToLits(3, 10)))
+	s.AppendClause(NewClause(IntsToLits(-3, -10)))
+	s.AppendClause(NewClause(IntsToLits(4, 6, 8)))
+	if status := s.Solve(); status != Sat {
+		t.Fatalf("expected sat for problem got %v", status)
+	}
+	s.AppendClause(NewClause(IntsToLits(3, -10)))
+	if status := s.Solve(); status != Unsat {
+		t.Fatalf("expected unsat for problem got %v", status)
+	}
+}
+
 func TestParseSliceTrivial(t *testing.T) {
 	cnf := [][]int{{1}, {-1}}
 	pb := ParseSlice(cnf)

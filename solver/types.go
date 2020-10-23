@@ -42,6 +42,17 @@ type Var int32
 // Thus the CNF literal -3 is encoded as 2 * (3-1) + 1 = 5.
 type Lit int32
 
+// IntsToLits converts a list of CNF literals to a []Lit.
+// This is a helper function as the same result can be achieved by calling
+// IntToLit several times.
+func IntsToLits(vals ...int32) []Lit {
+	res := make([]Lit, len(vals))
+	for i, val := range vals {
+		res[i] = IntToLit(val)
+	}
+	return res
+}
+
 // IntToLit converts a CNF literal to a Lit.
 func IntToLit(i int32) Lit {
 	if i < 0 {
