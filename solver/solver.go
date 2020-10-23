@@ -465,7 +465,9 @@ func (s *Solver) Assume(lits []Lit) Status {
 	s.cleanupBindings(0)
 	s.trail = s.trail[:0]
 	s.assumptions = make([]bool, s.nbVars)
+
 	for _, lit := range lits {
+
 		s.addLearnedUnit(lit)
 		s.assumptions[lit.Var()] = true
 		s.trail = append(s.trail, lit)
