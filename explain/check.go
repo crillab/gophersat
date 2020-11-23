@@ -116,13 +116,17 @@ func (pb *Problem) UnsatSubset() (subset *Problem, err error) {
 	s := solver.New(solver.ParseSlice(pb.Clauses))
 	s.Certified = true
 	s.CertChan = make(chan string)
+	status := solver.Unsat
 	go func() {
-		s.Solve()
+		status = s.Solve()
 		close(s.CertChan)
 	}()
-	if valid, err := pb.UnsatChan(s.CertChan); !valid {
+	if valid, err := pb.UnsatChan(s.CertChan); !valid || status == solver.Sat {
+
 		return nil, fmt.Errorf("problem is not UNSAT")
+
 	} else if err != nil {
+
 		return nil, fmt.Errorf("could not solve problem: %v", err)
 	}
 	subset = &Problem{
@@ -132,7 +136,7 @@ func (pb *Problem) UnsatSubset() (subset *Problem, err error) {
 		if pb.tagged[i] {
 			// clause was used to prove pb is UNSAT: it's part of the subset
 			subset.Clauses = append(subset.Clauses, clause)
-			subset.nbClauses++
+			subset.NbClauses++
 		}
 	}
 	return subset, nil

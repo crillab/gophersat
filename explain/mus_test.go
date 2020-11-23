@@ -2,8 +2,12 @@ package explain
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strings"
+	"testing"
+
+	"github.com/crillab/gophersat/solver"
 )
 
 func ExampleInstanceIsAMUS() {
@@ -31,4 +35,28 @@ func ExampleInstanceIsAMUS() {
 	// p cnf 1 2
 	// -1 0
 	// 1 0
+}
+
+func TestMUSOnSatisfiableFormula(t *testing.T) {
+
+	cnf, err := os.Open("testcnf/impossible.cnf")
+	if err != nil {
+		t.Errorf("could not read CNF file: %v", err)
+		return
+	}
+	defer cnf.Close()
+
+	pb, err := ParseCNF(cnf)
+	if err != nil {
+		t.Fatalf("could not parse cnf: %v", err)
+	}
+
+	mus, err := pb.MUSDeletion()
+	if err == nil {
+		t.Fatal("This function should return an error on satisfiable formula")
+		s := solver.New(solver.ParseSlice(mus.Clauses))
+		if s.Solve() != solver.Unsat {
+			t.Errorf("MUS was satisfiable")
+		}
+	}
 }
