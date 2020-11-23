@@ -127,6 +127,25 @@ func New(problem *Problem) *Solver {
 	return s
 }
 
+// newVar is used to indicate a new variable must be added to the solver.
+// This can be used when new clauses are appended and these clauses contain vars that were unseen so far.
+// If the var already existed, nothing will happen.
+func (s *Solver) newVar(v Var) {
+	if cnfVar := int(v.Int()); cnfVar > s.nbVars {
+		// If the var already existed, do nothing
+		for i := s.nbVars; i < cnfVar; i++ {
+			s.model = append(s.model, 0)
+			s.activity = append(s.activity, 0.)
+			s.polarity = append(s.polarity, false)
+			s.reason = append(s.reason, nil)
+			s.trailBuf = append(s.trailBuf, 0)
+		}
+		s.varQueue = newQueue(s.activity)
+		s.addVarWatcherList(v)
+		s.nbVars = cnfVar
+	}
+}
+
 // sets initial activity for optimization variables, if any.
 func (s *Solver) initOptimActivity() {
 	for i, lit := range s.minLits {
@@ -680,6 +699,7 @@ func (s *Solver) AppendClause(clause *Clause) {
 	i := 0
 	for i < clause.Len() {
 		lit := clause.Get(i)
+		s.newVar(lit.Var())
 		switch s.litStatus(lit) {
 		case Sat:
 			w := clause.Weight(i)

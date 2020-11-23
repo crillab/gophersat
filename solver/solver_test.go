@@ -96,7 +96,7 @@ func TestParseSliceSat(t *testing.T) {
 
 func TestIntsToLits(t *testing.T) {
 	cnf := [][]int{}
-	pb := ParseSliceNb(cnf, 10)
+	pb := ParseSlice(cnf)
 	s := New(pb)
 	s.AppendClause(NewClause(IntsToLits(1)))
 	s.AppendClause(NewClause(IntsToLits(-2, 3)))

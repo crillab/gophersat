@@ -71,6 +71,11 @@ func (v Var) Lit() Lit {
 	return Lit(v * 2)
 }
 
+// Int converts a Var to a CNF variable.
+func (v Var) Int() int32 {
+	return int32(v + 1)
+}
+
 // SignedLit returns the Lit associated to v, negated if 'signed', positive else.
 func (v Var) SignedLit(signed bool) Lit {
 	if signed {

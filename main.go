@@ -14,6 +14,8 @@ import (
 	"github.com/crillab/gophersat/solver"
 )
 
+const helpString = "This is gophersat version 1.3, a SAT and Pseudo-Boolean solver by Fabien Delorme.\n"
+
 func main() {
 	// defer profile.Start().Stop()
 	debug.SetGCPercent(300)
@@ -31,13 +33,13 @@ func main() {
 	flag.BoolVar(&help, "help", false, "displays help")
 	flag.Parse()
 	if !help && len(flag.Args()) != 1 {
-		fmt.Printf("This is gophersat version 1.3, a SAT and Pseudo-Boolean solver by Fabien Delorme.\n")
+		fmt.Printf(helpString)
 		fmt.Fprintf(os.Stderr, "Syntax : %s [options] (file.cnf|file.wcnf|file.bf|file.opb)\n", os.Args[0])
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
 	if help {
-		fmt.Printf("This is gophersat version 1.3, a SAT and Pseudo-Boolean solver by Fabien Delorme.\n")
+		fmt.Printf(helpString)
 		fmt.Printf("Syntax : %s [options] (file.cnf|file.wcnf|file.bf|file.opb)\n", os.Args[0])
 		flag.PrintDefaults()
 		os.Exit(0)
