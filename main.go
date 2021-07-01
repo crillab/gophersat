@@ -73,7 +73,6 @@ func main() {
 }
 
 func extractMUS(path string) {
-
 	f, err := os.Open(path)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "could not parse problem: %v\n", err)
@@ -85,13 +84,12 @@ func extractMUS(path string) {
 		fmt.Fprintf(os.Stderr, "could not parse problem: %v\n", err)
 		os.Exit(1)
 	}
-
 	pb2, err := pb.MUS()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "could not extract subset: %v\n", err)
 		os.Exit(1)
 	}
-
+	fmt.Println(pb2)
 	fmt.Println(pb2.CNF())
 }
 

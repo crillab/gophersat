@@ -153,9 +153,11 @@ func (pb *Problem) MUSInsertion() (mus *Problem, err error) {
 // It can be quite efficient, but each time the solver is called, it is starting from scratch.
 // Other methods keep the solver "hot", so despite requiring more calls, these methods can be more efficient in practice.
 func (pb *Problem) MUSDeletion() (mus *Problem, err error) {
-
 	pb2, err := pb.UnsatSubset()
 	if err != nil {
+		if err == ErrNotUnsat {
+			return nil, err
+		}
 		return nil, fmt.Errorf("could not extract MUS: %v", err)
 	}
 	pb2.NbVars += pb2.NbClauses          // Add one relax var for each clause
@@ -207,6 +209,5 @@ func (pb *Problem) MUSDeletion() (mus *Problem, err error) {
 // The exact algorithm used to compute the MUS is not guaranteed. If you want to use a given algorithm,
 // use the relevant functions.
 func (pb *Problem) MUS() (mus *Problem, err error) {
-
 	return pb.MUSDeletion()
 }

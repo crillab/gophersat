@@ -44,7 +44,6 @@ func (pb *Problem) UnsatChan(ch chan string) (valid bool, err error) {
 	defer pb.restore()
 	pb.initTagged()
 	for line := range ch {
-
 		fields := strings.Fields(line)
 		if len(fields) == 0 {
 			continue
@@ -107,12 +106,22 @@ func (pb *Problem) Unsat(cert io.Reader) (valid bool, err error) {
 	return true, nil
 }
 
+// ErrNotUnsat is the error returned when trying to get the MUS or UnsatSubset of a satisfiable problem.
+var ErrNotUnsat = fmt.Errorf("problem is not UNSAT")
+
 // UnsatSubset returns an unsatisfiable subset of the problem.
 // The subset is not guaranteed to be a MUS, meaning some clauses of the resulting
 // problem might be removed while still keeping the unsatisfiability of the problem.
 // However, this method is much more efficient than extracting a MUS, as it only calls
 // the SAT solver once.
 func (pb *Problem) UnsatSubset() (subset *Problem, err error) {
+	solverPb := solver.ParseSlice(pb.Clauses)
+	if solverPb.Status == solver.Unsat {
+		// Problem is trivially UNSAT
+		// Make a copy so that pb and pb2 are not the same value.
+		pb2 := *pb
+		return &pb2, nil
+	}
 	s := solver.New(solver.ParseSlice(pb.Clauses))
 	s.Certified = true
 	s.CertChan = make(chan string)
@@ -122,11 +131,8 @@ func (pb *Problem) UnsatSubset() (subset *Problem, err error) {
 		close(s.CertChan)
 	}()
 	if valid, err := pb.UnsatChan(s.CertChan); !valid || status == solver.Sat {
-
-		return nil, fmt.Errorf("problem is not UNSAT")
-
+		return nil, ErrNotUnsat
 	} else if err != nil {
-
 		return nil, fmt.Errorf("could not solve problem: %v", err)
 	}
 	subset = &Problem{

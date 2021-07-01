@@ -37,8 +37,28 @@ func ExampleInstanceIsAMUS() {
 	// 1 0
 }
 
-func TestMUSOnSatisfiableFormula(t *testing.T) {
+func TestTrivialMUS(t *testing.T) {
+	cnf, err := os.Open("testcnf/trivial.cnf")
+	if err != nil {
+		t.Errorf("could not read CNF file: %v", err)
+		return
+	}
+	defer cnf.Close()
+	pb, err := ParseCNF(cnf)
+	if err != nil {
+		t.Fatalf("could not parse cnf: %v", err)
+	}
+	mus, err := pb.MUSDeletion()
+	if err != nil {
+		t.Fatalf("could not compute MUS: %v", err)
+	}
+	s := solver.New(solver.ParseSlice(mus.Clauses))
+	if s.Solve() != solver.Unsat {
+		t.Errorf("MUS was satisfiable")
+	}
+}
 
+func TestMUSOnSatisfiableFormula(t *testing.T) {
 	cnf, err := os.Open("testcnf/impossible.cnf")
 	if err != nil {
 		t.Errorf("could not read CNF file: %v", err)
