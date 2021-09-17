@@ -336,7 +336,7 @@ func backtrackData(c *Clause, model []decLevel) (btLevel decLevel, lit Lit) {
 }
 
 func (s *Solver) rebuildOrderHeap() {
-	ints := make([]int, s.nbVars)
+	ints := make([]int, 0, s.nbVars)
 	for v := 0; v < s.nbVars; v++ {
 		if s.model[v] == 0 {
 			ints = append(ints, int(v))
