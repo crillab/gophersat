@@ -216,7 +216,7 @@ func (a and) nnf() Formula {
 		return res[0]
 	}
 	if len(res) == 0 {
-		return False
+		return True
 	}
 	return res
 }
@@ -268,7 +268,7 @@ func (o or) nnf() Formula {
 		return res[0]
 	}
 	if len(res) == 0 {
-		return True
+		return False
 	}
 	return res
 }
