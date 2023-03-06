@@ -509,7 +509,7 @@ func (s *Solver) Enumerate(models chan []bool, stop chan struct{}) int {
 	}
 	s.lastModel = make(Model, len(s.model))
 	nb := 0
-	lit := s.chooseLit()
+	var lit Lit
 	var lvl decLevel
 	for s.status != Unsat {
 		for s.status == Indet {
@@ -579,7 +579,7 @@ func (s *Solver) CountModels() int {
 		}()
 	}
 	nb := 0
-	lit := s.chooseLit()
+	var lit Lit
 	var lvl decLevel
 	for s.status != Unsat {
 		for s.status == Indet {
