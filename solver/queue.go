@@ -81,32 +81,14 @@ func (q *queue) percolateDown(i int) {
 	q.indices[x] = i
 }
 
-func (q *queue) len() int    { return len(q.content) }
 func (q *queue) empty() bool { return len(q.content) == 0 }
 
 func (q *queue) contains(n int) bool {
 	return n < len(q.indices) && q.indices[n] >= 0
 }
 
-func (q *queue) get(index int) int {
-	return q.content[index]
-}
-
 func (q *queue) decrease(n int) {
 	q.percolateUp(q.indices[n])
-}
-
-func (q *queue) increase(n int) {
-	q.percolateDown(q.indices[n])
-}
-
-func (q *queue) update(n int) {
-	if !q.contains(n) {
-		q.insert(n)
-	} else {
-		q.percolateUp(q.indices[n])
-		q.percolateDown(q.indices[n])
-	}
 }
 
 func (q *queue) insert(n int) {

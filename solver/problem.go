@@ -97,52 +97,6 @@ func (pb *Problem) updateStatus(nbClauses int) {
 	}
 }
 
-func (pb *Problem) simplifyClause(idx int, idxClauses [][]int, removed []bool) {
-	c := pb.Clauses[idx]
-	k := 0
-	sat := false
-	for j := 0; j < c.Len(); j++ {
-		lit := c.Get(j)
-		v := lit.Var()
-		if pb.Model[v] == 0 {
-			c.Set(k, c.Get(j))
-			k++
-			idxClauses[lit] = append(idxClauses[lit], idx)
-		} else if (pb.Model[v] > 0) == lit.IsPositive() {
-			sat = true
-			break
-		}
-	}
-	if sat {
-		removed[idx] = true
-		return
-	}
-	if k == 0 {
-		pb.Status = Unsat
-		return
-	}
-	if k == 1 {
-		pb.addUnit(c.First())
-		if pb.Status == Unsat {
-			return
-		}
-		removed[idx] = true
-	}
-	c.Shrink(k)
-}
-
-// rmClauses removes clauses that are already satisfied after simplification.
-func (pb *Problem) rmClauses(removed []bool) {
-	j := 0
-	for i, rm := range removed {
-		if !rm {
-			pb.Clauses[j] = pb.Clauses[i]
-			j++
-		}
-	}
-	pb.Clauses = pb.Clauses[:j]
-}
-
 // simplify simplifies the pure SAT problem, i.e runs unit propagation if possible.
 func (pb *Problem) simplify2() {
 	nbClauses := len(pb.Clauses)
