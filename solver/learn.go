@@ -98,7 +98,9 @@ func (s *Solver) learnClause(confl *Clause, lvl decLevel) (learned *Clause, unit
 	if sz == 1 {
 		return nil, lits[0]
 	}
-	learned = NewLearnedClause(alloc.newLits(lits[0:sz]...))
+	lits2 := make([]Lit, sz)
+	copy(lits2, lits[:sz])
+	learned = NewLearnedClause(lits2)
 	learned.computeLbd(s.model)
 	return learned, -1
 }
