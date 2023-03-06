@@ -160,7 +160,7 @@ func ParseCNF(f io.Reader) (*Problem, error) {
 				val, err := readInt(&b, r)
 				if err == io.EOF {
 					if len(lits) != 0 { // This is not a trailing space at the end...
-						return nil, fmt.Errorf("unfinished clause while EOF found")
+						pb.Clauses = append(pb.Clauses, NewClause(lits))
 					}
 					break // When there are only several useless spaces at the end of the file, that is ok
 				}
