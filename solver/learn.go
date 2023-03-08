@@ -36,7 +36,7 @@ func (s *Solver) addClauseLits(confl *Clause, lvl decLevel, met, metLvl []bool, 
 	return nbLvl
 }
 
-var bufLits = make([]Lit, 10000) // Buffer for lits in learnClause. Used to reduce allocations.
+var bufLits = make([]Lit, 10_000) // Buffer for lits in learnClause. Used to reduce allocations.
 
 // learnClause creates a conflict clause and returns either:
 // - the clause itself, if its len is at least 2,

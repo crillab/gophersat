@@ -8,9 +8,9 @@ import (
 )
 
 const (
-	initNbMaxClauses  = 2000  // Maximum # of learned clauses, at first.
+	initNbMaxClauses  = 2_000 // Maximum # of learned clauses, at first.
 	incrNbMaxClauses  = 300   // By how much # of learned clauses is incremented at each conflict.
-	incrPostponeNbMax = 1000  // By how much # of learned is increased when lots of good clauses are currently learned.
+	incrPostponeNbMax = 1_000 // By how much # of learned is increased when lots of good clauses are currently learned.
 	clauseDecay       = 0.999 // By how much clauses bumping decays over time.
 	defaultVarDecay   = 0.8   // On each var decay, how much the varInc should be decayed at startup
 )
@@ -365,7 +365,7 @@ func (s *Solver) propagateAndSearch(lit Lit, lvl decLevel) Status {
 			lit = s.chooseLit()
 		} else { // Deal with conflict
 			s.Stats.NbConflicts++
-			if s.Stats.NbConflicts%5000 == 0 && s.varDecay < 0.95 {
+			if s.Stats.NbConflicts%5_000 == 0 && s.varDecay < 0.95 {
 				s.varDecay += 0.01
 			}
 			s.lbdStats.addConflict(len(s.trail))
