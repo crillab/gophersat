@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"runtime/debug"
 	"sort"
 	"strings"
 
@@ -18,7 +17,6 @@ const helpString = "This is gophersat version 1.3, a SAT and Pseudo-Boolean solv
 
 func main() {
 	// defer profile.Start().Stop()
-	debug.SetGCPercent(300)
 	var (
 		verbose bool
 		cert    bool
