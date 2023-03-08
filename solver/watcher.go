@@ -12,13 +12,13 @@ type watcher struct {
 
 // A watcherList is a structure used to store clauses and propagate unit literals efficiently.
 type watcherList struct {
-	nbMax     int         // Max # of learned clauses at current moment
-	idxReduce int         // # of calls to reduce + 1
-	wlistBin  [][]watcher // For each literal, a list of binary clauses where its negation appears
-	wlist     [][]watcher // For each literal, a list of non-binary clauses where its negation appears atposition 1 or 2
-	wlistPb   [][]*Clause // For each literal a list of PB or cardinality constraints.
-	pbClauses []*Clause   // All the problem clauses.
-	learned   []*Clause
+	nbMax       int         // Max # of learned clauses at current moment
+	idxReduce   int         // # of calls to reduce + 1
+	wlistBin    [][]watcher // For each literal, a list of binary clauses where its negation appears
+	wlist       [][]watcher // For each literal, a list of non-binary clauses where its negation appears atposition 1 or 2
+	wlistPb     [][]*Clause // For each literal a list of PB or cardinality constraints.
+	origClauses []*Clause   // All the problem clauses.
+	learned     []*Clause
 }
 
 // initWatcherList makes a new watcherList for the solver.
@@ -27,12 +27,12 @@ func (s *Solver) initWatcherList(clauses []*Clause) {
 	newClauses := make([]*Clause, len(clauses))
 	copy(newClauses, clauses)
 	s.wl = watcherList{
-		nbMax:     nbMax,
-		idxReduce: 1,
-		wlistBin:  make([][]watcher, s.nbVars*2),
-		wlist:     make([][]watcher, s.nbVars*2),
-		wlistPb:   make([][]*Clause, s.nbVars*2),
-		pbClauses: newClauses,
+		nbMax:       nbMax,
+		idxReduce:   1,
+		wlistBin:    make([][]watcher, s.nbVars*2),
+		wlist:       make([][]watcher, s.nbVars*2),
+		wlistPb:     make([][]*Clause, s.nbVars*2),
+		origClauses: newClauses,
 	}
 	for _, c := range clauses {
 		s.watchClause(c)
@@ -53,7 +53,7 @@ func (s *Solver) addVarWatcherList(v Var) {
 // To perform those checks, call s.AppendClause.
 // clause is supposed to be a problem clause, not a learned one.
 func (s *Solver) appendClause(clause *Clause) {
-	s.wl.pbClauses = append(s.wl.pbClauses, clause)
+	s.wl.origClauses = append(s.wl.origClauses, clause)
 	s.watchClause(clause)
 }
 

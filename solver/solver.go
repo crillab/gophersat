@@ -655,7 +655,7 @@ func (s *Solver) propagateUnits(units []Lit) {
 
 // PBString returns a representation of the solver's state as a pseudo-boolean problem.
 func (s *Solver) PBString() string {
-	meta := fmt.Sprintf("* #variable= %d #constraint= %d #learned= %d\n", s.nbVars, len(s.wl.pbClauses), len(s.wl.learned))
+	meta := fmt.Sprintf("* #variable= %d #constraint= %d #learned= %d\n", s.nbVars, len(s.wl.origClauses), len(s.wl.learned))
 	minLine := ""
 	if s.minLits != nil {
 		terms := make([]string, len(s.minLits))
@@ -674,12 +674,12 @@ func (s *Solver) PBString() string {
 		}
 		minLine = fmt.Sprintf("min: %s ;\n", strings.Join(terms, " +"))
 	}
-	clauses := make([]string, len(s.wl.pbClauses)+len(s.wl.learned))
-	for i, c := range s.wl.pbClauses {
+	clauses := make([]string, len(s.wl.origClauses)+len(s.wl.learned))
+	for i, c := range s.wl.origClauses {
 		clauses[i] = c.PBString()
 	}
 	for i, c := range s.wl.learned {
-		clauses[i+len(s.wl.pbClauses)] = c.PBString()
+		clauses[i+len(s.wl.origClauses)] = c.PBString()
 	}
 	for i := 0; i < len(s.model); i++ {
 		if s.model[i] == 1 {
