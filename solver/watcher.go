@@ -387,25 +387,30 @@ func (s *Solver) swapFalse(clause *Clause) {
 	}
 }
 
-// sumWeights returns the sum of weights of the given PB clause, if the clause is not SAT yet.
-// If the clause is already SAT, it returns true and the given sum value
-// is meaningless.
-func (s *Solver) sumWeights(c *Clause) (sum int, sat bool) {
-	sum = 0
-	sumSat := 0
+// slack Sumreturns slack value for c and whether the clause is already sat or not.
+// The slack value is defined as sum of weights - cardinality - sum of weights of falsified lits.
+// It can be negative, meaning the whole constraint is falsified.
+// If it's 0 or above, it means all literals with a weight >= slack must be propagated.
+// If the clause is already satisfied, the slack value shall not be used.
+// This is mostly useful for PB constraints.
+func (s *Solver) slackSum(c *Clause) (slack int, sat bool) {
 	card := c.Cardinality()
-	for i, v := range c.pbData.weights {
-		if status := s.litStatus(c.Get(i)); status == Indet {
-			sum += v
-		} else if status == Sat {
-			sum += v
-			sumSat += v
-			if sumSat >= card {
-				return sum, true
+	slack = -card
+	sum := 0
+	for i, w := range c.pbData.weights {
+		status := s.litStatus(c.Get(i))
+		switch status {
+		case Indet:
+			slack += w
+		case Sat:
+			slack += w
+			sum += w
+			if sum >= card {
+				return slack, true
 			}
 		}
 	}
-	return sum, false
+	return slack, false
 }
 
 // propagateAll propagates all unbounded literals from c as unit literals
@@ -417,28 +422,24 @@ func (s *Solver) propagateAll(c *Clause, lvl decLevel) {
 	}
 }
 
-// simplifyPseudoBool simplifies a pseudo-boolean constraint.
-// propagates unit literals, if any.
-// returns false if the clause cannot be satisfied.
 func (s *Solver) simplifyPseudoBool(clause *Clause, lvl decLevel) bool {
-	card := clause.Cardinality()
 	foundUnit := true
 	for foundUnit {
-		sumW, sat := s.sumWeights(clause)
+		slack, sat := s.slackSum(clause)
 		if sat {
 			return true
 		}
-		if sumW < card {
+		if slack < 0 {
 			return false
 		}
-		if sumW == card {
+		if slack == 0 {
 			s.propagateAll(clause, lvl)
 			return true
 		}
 		foundUnit = false
 		for i := 0; i < clause.Len(); i++ {
 			lit := clause.Get(i)
-			if s.litStatus(lit) == Indet && sumW-clause.Weight(i) < card { // lit can't be falsified
+			if s.litStatus(lit) == Indet && clause.Weight(i) > slack { // lit will be propagated
 				s.propagateUnit(clause, lvl, lit)
 				foundUnit = true
 			}
