@@ -52,6 +52,8 @@ var tests = []test{
 	{"testcnf/fixed-bandwidth-10.cnf.gz-extracted.pb", Unsat},
 	{"testcnf/ex1.opb", Unsat},
 	{"testcnf/lo_8x8_009.opb", Sat},
+	{"testcnf/8-pigeons.cnf", Unsat},
+	{"testcnf/8-pigeons.opb", Unsat},
 }
 
 func TestSolver(t *testing.T) {
@@ -68,6 +70,22 @@ func runBench(path string, b *testing.B) {
 	defer func() { _ = f.Close() }()
 	for i := 0; i < b.N; i++ {
 		pb, err := ParseCNF(f)
+		if err != nil {
+			b.Fatal(err.Error())
+		}
+		s := New(pb)
+		s.Solve()
+	}
+}
+
+func runBenchPB(path string, b *testing.B) {
+	f, err := os.Open(path)
+	if err != nil {
+		b.Fatal(err.Error())
+	}
+	defer func() { _ = f.Close() }()
+	for i := 0; i < b.N; i++ {
+		pb, err := ParseOPB(f)
 		if err != nil {
 			b.Fatal(err.Error())
 		}
@@ -387,4 +405,36 @@ func BenchmarkSolverManolPipe(b *testing.B) {
 
 func BenchmarkSolverZebra(b *testing.B) {
 	runBench("testcnf/zebra.cnf", b)
+}
+
+func BenchmarkSolver8Pigeons(b *testing.B) {
+	runBench("testcnf/8-pigeons.cnf", b)
+}
+
+func BenchmarkSolver8PigeonsPB(b *testing.B) {
+	runBenchPB("testcnf/8-pigeons.opb", b)
+}
+
+func BenchmarkSolver9Pigeons(b *testing.B) {
+	runBench("testcnf/9-pigeons.cnf", b)
+}
+
+func BenchmarkSolver9PigeonsPB(b *testing.B) {
+	runBenchPB("testcnf/9-pigeons.opb", b)
+}
+
+func BenchmarkSolver10Pigeons(b *testing.B) {
+	runBench("testcnf/10-pigeons.cnf", b)
+}
+
+func BenchmarkSolver10PigeonsPB(b *testing.B) {
+	runBenchPB("testcnf/10-pigeons.opb", b)
+}
+
+func BenchmarkSolver11Pigeons(b *testing.B) {
+	runBench("testcnf/11-pigeons.cnf", b)
+}
+
+func BenchmarkSolver11PigeonsPB(b *testing.B) {
+	runBenchPB("testcnf/11-pigeons.opb", b)
 }
