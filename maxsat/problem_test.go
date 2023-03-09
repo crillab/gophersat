@@ -41,8 +41,7 @@ func TestSat(t *testing.T) {
 	}
 }
 
-// TODO: repair that test
-func testOptim(t *testing.T) {
+func TestOptim(t *testing.T) {
 	pb := New(
 		HardClause(Var("a"), Var("b"), Var("c")),
 		HardPBConstr([]Lit{Not("a"), Not("b"), Not("c")}, []int{1, 1, 1}, 2),
@@ -128,5 +127,11 @@ func TestTSP(t *testing.T) {
 func BenchmarkTSP(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		New(generateTSP(9)...).Solve()
+	}
+}
+
+func BenchmarkTSP10(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		New(generateTSP(10)...).Solve()
 	}
 }
