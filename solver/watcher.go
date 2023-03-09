@@ -84,30 +84,21 @@ func (wl *watcherList) Less(i, j int) bool {
 
 // Watches the provided clause.
 func (s *Solver) watchClause(c *Clause) {
-	if c.Len() == 2 {
-		first := c.First()
-		second := c.Second()
-		neg0 := first.Negation()
-		neg1 := second.Negation()
-		s.wl.wlistBin[neg0] = append(s.wl.wlistBin[neg0], watcher{clause: c, other: second})
-		s.wl.wlistBin[neg1] = append(s.wl.wlistBin[neg1], watcher{clause: c, other: first})
-	} else if c.PseudoBoolean() {
-		w := 0
-		i := 0
-		for i < 2 || w <= c.Cardinality() {
-			lit := c.Get(i)
-			neg := lit.Negation()
-			s.wl.wlistPb[neg] = append(s.wl.wlistPb[neg], c)
-			c.pbData.watched[i] = true
-			w += c.Weight(i)
-			i++
-		}
+	if c.PseudoBoolean() {
+		s.watchPB(c)
 	} else if c.Cardinality() > 1 {
 		for i := 0; i < c.Cardinality()+1; i++ {
 			lit := c.Get(i)
 			neg := lit.Negation()
 			s.wl.wlistPb[neg] = append(s.wl.wlistPb[neg], c)
 		}
+	} else if c.Len() == 2 {
+		first := c.First()
+		second := c.Second()
+		neg0 := first.Negation()
+		neg1 := second.Negation()
+		s.wl.wlistBin[neg0] = append(s.wl.wlistBin[neg0], watcher{clause: c, other: second})
+		s.wl.wlistBin[neg1] = append(s.wl.wlistBin[neg1], watcher{clause: c, other: first})
 	} else { // Regular, propositional clause
 		first := c.First()
 		second := c.Second()
@@ -115,6 +106,20 @@ func (s *Solver) watchClause(c *Clause) {
 		neg1 := second.Negation()
 		s.wl.wlist[neg0] = append(s.wl.wlist[neg0], watcher{clause: c, other: second})
 		s.wl.wlist[neg1] = append(s.wl.wlist[neg1], watcher{clause: c, other: first})
+	}
+}
+
+func (s *Solver) watchPB(c *Clause) {
+	goal := c.Weight(0) + c.Cardinality() // We'll keep watching vars until the max weightat least reaches this value
+	sum := 0
+	i := 0
+	for sum < goal {
+		lit := c.Get(i)
+		neg := lit.Negation()
+		s.wl.wlistPb[neg] = append(s.wl.wlistPb[neg], c)
+		c.pbData.watched[i] = true
+		sum += c.Weight(i)
+		i++
 	}
 }
 
