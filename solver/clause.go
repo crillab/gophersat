@@ -241,3 +241,40 @@ func (c *Clause) PBString() string {
 	}
 	return fmt.Sprintf("%s >= %d ;", strings.Join(terms, " +"), c.Cardinality())
 }
+
+// SimplifyPB tries to simplify a pseudo boolean constraint by propagating all lits that can be propagated
+// not matter whet the assignment.
+// A PB constraint can also be false if all its coeficients are smaller than the cardinality.
+// It will return a list of unit lits (if any), a new, simplified clause (or nil if all lits can be propagated and/or ignored)
+// and a boolean ok indicating whether the clause can be satisfied or not. If ok is false, other return parameters are irrelevant.
+func (c *Clause) SimplifyPB() (units []Lit, c2 *Clause, ok bool) {
+	card := c.Cardinality()
+	thresh := c.WeightSum() - card
+	if thresh < 0 {
+		// Even if all lits are true, the clause is still unsatisfied
+		return nil, nil, false
+	}
+	// all lits whose weights are > thresh must be satisfied
+	i := 0
+	for c.Weight(i) > thresh {
+		units = append(units, c.Get(i))
+		card -= c.Weight(i)
+		i++
+	}
+	if card <= 0 {
+		// clause is now satisfied, other lits are irrelevant
+		return units, nil, true
+	}
+	// All lits starting from i must be kept
+	newLen := c.Len() - i
+	newLits := make([]Lit, newLen)
+	newWeights := make([]int, newLen)
+	copy(newLits, c.lits[i:])
+	copy(newWeights, c.pbData.weights[i:])
+	// saturate weights so that none is higher than card
+	i = 0
+	for newWeights[i] > card {
+		newWeights[i] = card
+	}
+	return units, NewPBClause(newLits, newWeights, card), true
+}
