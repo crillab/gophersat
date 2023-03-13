@@ -237,7 +237,7 @@ func (s *Solver) propagate(ptr int, lvl decLevel) *Clause {
 					return c
 				}
 			} else {
-				if !s.simplifyCardClause(c, lvl) {
+				if !s.simplifyCardConstr(c, lvl) {
 					return c
 				}
 			}
@@ -309,30 +309,23 @@ func (s *Solver) simplifyPropClauses(lit Lit, lvl decLevel) *Clause {
 	return nil
 }
 
-// simplifyCardClauses simplifies a clause of cardinality > 1, but with all weights = 1.
+// simplifyCardConstr simplifies a constraint of cardinality > 1, but with all weights = 1.
 // returns false iff the clause cannot be satisfied.
-func (s *Solver) simplifyCardClause(clause *Clause, lvl decLevel) bool {
+func (s *Solver) simplifyCardConstr(clause *Clause, lvl decLevel) bool {
 	length := clause.Len()
 	card := clause.Cardinality()
 	nbTrue := 0
 	nbFalse := 0
 	nbUnb := 0
-	done := false
-	for i := 0; i < length && !done; i++ {
+	for i := 0; i < length; i++ {
 		lit := clause.Get(i)
 		switch s.litStatus(lit) {
 		case Indet:
 			nbUnb++
-			if nbUnb+nbTrue > card {
-				done = true
-			}
 		case Sat:
 			nbTrue++
 			if nbTrue == card {
 				return true
-			}
-			if nbUnb+nbTrue > card {
-				done = true
 			}
 		case Unsat:
 			nbFalse++
@@ -340,9 +333,9 @@ func (s *Solver) simplifyCardClause(clause *Clause, lvl decLevel) bool {
 				return false
 			}
 		}
-	}
-	if nbTrue >= card {
-		return true
+		if nbUnb+nbTrue > card {
+			break
+		}
 	}
 	if nbUnb+nbTrue == card {
 		// All unbounded lits must be bound to make the clause true
