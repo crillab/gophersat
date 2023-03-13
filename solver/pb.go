@@ -25,6 +25,12 @@ func (c PBConstr) Clause() *Clause {
 	for i, val := range c.Lits {
 		lits[i] = IntToLit(int32(val))
 	}
+	// Saturate weights
+	for i := range c.Weights {
+		if c.Weights[i] > c.AtLeast {
+			c.Weights[i] = c.AtLeast
+		}
+	}
 	return NewPBClause(lits, c.Weights, c.AtLeast)
 }
 
