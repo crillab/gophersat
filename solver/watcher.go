@@ -12,13 +12,14 @@ type watcher struct {
 
 // A watcherList is a structure used to store clauses and propagate unit literals efficiently.
 type watcherList struct {
-	nbMax       int         // Max # of learned clauses at current moment
-	idxReduce   int         // # of calls to reduce + 1
-	wlistBin    [][]watcher // For each literal, a list of binary clauses where its negation appears
-	wlist       [][]watcher // For each literal, a list of non-binary clauses where its negation appears atposition 1 or 2
-	wlistPb     [][]*Clause // For each literal a list of PB or cardinality constraints.
-	origClauses []*Clause   // All the problem clauses.
-	learned     []*Clause
+	nbMax        int         // Max # of learned clauses at current moment
+	idxReduce    int         // # of calls to reduce + 1
+	wlistBin     [][]watcher // For each literal, a list of binary clauses where its negation appears
+	wlist        [][]watcher // For each literal, a list of non-binary clauses where its negation appears at position 1 or 2
+	wlistPb      [][]*Clause // For each literal, a list of PB or cardinality constraints.
+	wlistCardAMO [][]*Clause // For each literal, a list of cardinality constraints where card = length - 1, meaning any false literal propagates all others.
+	origClauses  []*Clause   // All the problem clauses.
+	learned      []*Clause
 }
 
 // initWatcherList makes a new watcherList for the solver.
@@ -27,12 +28,13 @@ func (s *Solver) initWatcherList(clauses []*Clause) {
 	newClauses := make([]*Clause, len(clauses))
 	copy(newClauses, clauses)
 	s.wl = watcherList{
-		nbMax:       nbMax,
-		idxReduce:   1,
-		wlistBin:    make([][]watcher, s.nbVars*2),
-		wlist:       make([][]watcher, s.nbVars*2),
-		wlistPb:     make([][]*Clause, s.nbVars*2),
-		origClauses: newClauses,
+		nbMax:        nbMax,
+		idxReduce:    1,
+		wlistBin:     make([][]watcher, s.nbVars*2),
+		wlist:        make([][]watcher, s.nbVars*2),
+		wlistPb:      make([][]*Clause, s.nbVars*2),
+		wlistCardAMO: make([][]*Clause, s.nbVars*2),
+		origClauses:  newClauses,
 	}
 	for _, c := range clauses {
 		s.watchClause(c)
@@ -46,6 +48,7 @@ func (s *Solver) addVarWatcherList(v Var) {
 		s.wl.wlistBin = append(s.wl.wlistBin, nil, nil)
 		s.wl.wlist = append(s.wl.wlist, nil, nil)
 		s.wl.wlistPb = append(s.wl.wlistPb, nil, nil)
+		s.wl.wlistCardAMO = append(s.wl.wlistCardAMO, nil, nil)
 	}
 }
 
@@ -86,11 +89,15 @@ func (wl *watcherList) Less(i, j int) bool {
 func (s *Solver) watchClause(c *Clause) {
 	if c.PseudoBoolean() {
 		s.watchPB(c)
-	} else if c.Cardinality() > 1 {
-		for i := 0; i < c.Cardinality()+1; i++ {
-			lit := c.Get(i)
-			neg := lit.Negation()
-			s.wl.wlistPb[neg] = append(s.wl.wlistPb[neg], c)
+	} else if card := c.Cardinality(); card > 1 {
+		if card == c.Len()+1 {
+			s.watchCardAMO(c, card)
+		} else {
+			for i := 0; i < c.Cardinality()+1; i++ {
+				lit := c.Get(i)
+				neg := lit.Negation()
+				s.wl.wlistPb[neg] = append(s.wl.wlistPb[neg], c)
+			}
 		}
 	} else if c.Len() == 2 {
 		first := c.First()
@@ -120,6 +127,16 @@ func (s *Solver) watchPB(c *Clause) {
 		c.pbData.watched[i] = true
 		sum += c.Weight(i)
 		i++
+	}
+}
+
+func (s *Solver) watchCardAMO(c *Clause, card int) {
+	// This is an AtMostOne constraint. At most one of the literals is false.
+	// Any falsified literal propagates all other lits.
+	for i := 0; i < card+1; i++ {
+		lit := c.Get(i)
+		neg := lit.Negation()
+		s.wl.wlistCardAMO[neg] = append(s.wl.wlistCardAMO[neg], c)
 	}
 }
 
@@ -182,7 +199,6 @@ func (s *Solver) addLearned(c *Clause) {
 
 // Adds the given unit literal to the model at the top level.
 func (s *Solver) addLearnedUnit(unit Lit) {
-
 	s.model[unit.Var()] = lvlToSignedLvl(unit, 1)
 	if s.Certified {
 		if s.CertChan == nil {
@@ -221,7 +237,6 @@ func (s *Solver) propagate(ptr int, lvl decLevel) *Clause {
 			v2 := w.other.Var()
 			if assign := s.model[v2]; assign == 0 { // Other was unbounded: propagate
 				s.reason[v2] = w.clause
-				w.clause.lock()
 				s.model[v2] = lvlToSignedLvl(w.other, lvl)
 				s.trail = append(s.trail, w.other)
 			} else if (assign > 0) != w.other.IsPositive() { // Conflict here
@@ -240,6 +255,11 @@ func (s *Solver) propagate(ptr int, lvl decLevel) *Clause {
 				if !s.simplifyCardConstr(c, lvl) {
 					return c
 				}
+			}
+		}
+		for _, c := range s.wl.wlistCardAMO[lit] {
+			if !s.simplifyCardAMOConstr(c, lvl) {
+				return c
 			}
 		}
 		ptr++
@@ -297,7 +317,7 @@ func (s *Solver) simplifyPropClauses(lit Lit, lvl decLevel) *Clause {
 				wl[j] = w2
 				j++
 				if firstStatus == Unsat {
-					copy(wl[j:], wl[i+1:]) // Copy remaining clauses
+					copy(wl[j:], wl[i+1:]) // Keep remaining clauses
 					s.wl.wlist[lit] = wl[:len(wl)-((i+1)-j)]
 					return c
 				}
@@ -352,6 +372,32 @@ func (s *Solver) simplifyCardConstr(clause *Clause, lvl decLevel) bool {
 		return true
 	}
 	s.swapFalse(clause)
+	return true
+}
+
+// simplifyCardAMOConstr simplifies the special cardinality constraints where card == length -1, and returns false iff the constraint is UNSAT.
+// Whenever a literal is false, all other literals must be true.
+// This is a special case, which can be dealt with slightly more efficiently than more general cases.
+func (s *Solver) simplifyCardAMOConstr(clause *Clause, lvl decLevel) bool {
+	card := clause.Cardinality()
+	length := card + 1
+	foundFalse := false
+	for i := 0; i < length; i++ {
+		lit := clause.Get(i)
+		if s.litStatus(lit) == Unsat {
+			if foundFalse { // A second false lit
+				return false
+			}
+			foundFalse = true
+		}
+	}
+	// All unbounded lits must be bound to make the clause true
+	for i := 0; i < length; i++ {
+		lit := clause.Get(i)
+		if s.model[lit.Var()] == 0 {
+			s.propagateUnit(clause, lvl, lit)
+		}
+	}
 	return true
 }
 
