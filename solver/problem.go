@@ -111,6 +111,24 @@ func (pb *Problem) simplify2() {
 			j := 0
 			for j < nbLits {
 				lit := c.Get(j)
+				k := j + 1
+				for k < nbLits {
+					lit2 := c.Get(k)
+					if lit2 == lit.Negation() {
+						clauseSat = true
+						break
+					}
+					if lit2 == lit { // duplicate lit
+						nbLits--
+						c.Set(k, c.Get(nbLits))
+					} else {
+						k++
+					}
+				}
+				if clauseSat {
+					clauseSat = true
+					break
+				}
 				if pb.Model[lit.Var()] == 0 {
 					j++
 				} else if (pb.Model[lit.Var()] == 1) == lit.IsPositive() {
@@ -201,6 +219,7 @@ func (pb *Problem) simplifyCard() {
 }
 
 func (pb *Problem) simplifyPB() {
+	pb.replicateUnits()
 	modified := true
 	for modified {
 		modified = false
@@ -277,5 +296,16 @@ func (pb *Problem) addUnits(c *Clause, nbLits int) {
 	for i := 0; i < nbLits; i++ {
 		lit := c.Get(i)
 		pb.addUnit(lit)
+	}
+}
+
+func (pb *Problem) replicateUnits() {
+	for _, unit := range pb.Units {
+		v := unit.Var()
+		if unit.IsPositive() {
+			pb.Model[v] = 1
+		} else {
+			pb.Model[v] = -1
+		}
 	}
 }

@@ -6,6 +6,11 @@ import (
 	"testing"
 )
 
+func TestMultipleTimesSameVariable(t *testing.T) {
+	formula := Or(Or(Var("x"), Var("x"), Var("x")))
+	Solve(formula)
+}
+
 func TestIdentityAnd(t *testing.T) {
 	f1 := And(And(Var("x")))
 	f2 := And(And(), And(Var("x")))
