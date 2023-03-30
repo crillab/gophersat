@@ -45,7 +45,7 @@ func Dimacs(f Formula, w io.Writer) error {
 			pbVars = append(pbVars, v.name)
 		}
 	}
-	sort.Sort(sort.StringSlice(pbVars))
+	sort.Strings(pbVars)
 	for _, v := range pbVars {
 		idx := cnf.vars.pb[pbVar(v)]
 		line := fmt.Sprintf("c %s=%d\n", v, idx)
@@ -115,7 +115,7 @@ func (v variable) String() string {
 func (v variable) Eval(model map[string]bool) bool {
 	b, ok := model[v.name]
 	if !ok {
-		panic(fmt.Errorf("Model lacks binding for variable %s", v.name))
+		panic(fmt.Errorf("model lacks binding for variable %s", v.name))
 	}
 	return b
 }
