@@ -54,6 +54,7 @@ var tests = []test{
 	{"testcnf/lo_8x8_009.opb", Sat},
 	{"testcnf/8-pigeons.cnf", Unsat},
 	{"testcnf/8-pigeons.opb", Unsat},
+	{"testcnf/8-queens.cnf", Sat},
 }
 
 func TestSolver(t *testing.T) {
@@ -62,7 +63,7 @@ func TestSolver(t *testing.T) {
 	}
 }
 
-func runBench(path string, b *testing.B) {
+func runBench(path string, cp bool, b *testing.B) {
 	f, err := os.Open(path)
 	if err != nil {
 		b.Fatal(err.Error())
@@ -73,12 +74,16 @@ func runBench(path string, b *testing.B) {
 		if err != nil {
 			b.Fatal(err.Error())
 		}
+		if cp {
+			pb.DetectAtMostOne()
+		}
 		s := New(pb)
+		s.CuttingPlanes = cp
 		s.Solve()
 	}
 }
 
-func runBenchPB(path string, b *testing.B) {
+func runBenchPB(path string, cp bool, b *testing.B) {
 	f, err := os.Open(path)
 	if err != nil {
 		b.Fatal(err.Error())
@@ -90,6 +95,7 @@ func runBenchPB(path string, b *testing.B) {
 			b.Fatal(err.Error())
 		}
 		s := New(pb)
+		s.CuttingPlanes = cp
 		s.Solve()
 	}
 }
@@ -225,6 +231,28 @@ func TestPigeonCard(t *testing.T) {
 	}
 }
 
+func TestPigeonCardCP(t *testing.T) {
+	pb := ParseCardConstrs([]CardConstr{
+		AtLeast1(1, 2, 3),
+		AtMost1(1, 2, 3),
+		AtLeast1(4, 5, 6),
+		AtMost1(4, 5, 6),
+		AtLeast1(7, 8, 9),
+		AtMost1(7, 8, 9),
+		AtLeast1(10, 11, 12),
+		AtMost1(10, 11, 12),
+		AtMost1(1, 4, 7, 10),
+		AtMost1(2, 5, 8, 11),
+		AtMost1(3, 6, 9, 12),
+	})
+	s := New(pb)
+	s.CuttingPlanes = true
+	if status := s.Solve(); status == Sat {
+		model := s.Model()
+		t.Errorf("model found for pigeon problem: %v", model)
+	}
+}
+
 func ExampleParseCardConstrs() {
 	clauses := []CardConstr{
 		{Lits: []int{1, 2, 3}, AtLeast: 3},
@@ -348,9 +376,6 @@ func BenchmarkCountModels(b *testing.B) {
 		AtLeast1(4, 5, 6),
 		AtLeast1(1, 2, 3, 4, 5, 6, 7, 8, 9, 10),
 		AtLeast1(-7, -10),
-		//AtLeast1(11, 12, 13, 14, 15, 16, 17, 18, 19, 20),
-		//AtLeast1(21, 22, 23, 24, 25, 26, 27, 28, 29, 30),
-		//AtLeast1(50, 100),
 	}
 	for i := 0; i < b.N; i++ {
 		pb := ParseCardConstrs(clauses)
@@ -360,81 +385,132 @@ func BenchmarkCountModels(b *testing.B) {
 }
 
 func BenchmarkSolver25(b *testing.B) {
-	runBench("testcnf/25.cnf", b)
+	runBench("testcnf/25.cnf", false, b)
+}
+
+func BenchmarkSolver25CP(b *testing.B) {
+	runBench("testcnf/25.cnf", true, b)
+}
+
+func BenchmarkSolver150(b *testing.B) {
+	runBench("testcnf/150.cnf", false, b)
+}
+
+func BenchmarkSolver150CP(b *testing.B) {
+	runBench("testcnf/150.cnf", true, b)
 }
 
 func BenchmarkSolverHoons(b *testing.B) {
-	runBench("testcnf/hoons-vbmc-lucky7.cnf", b)
+	runBench("testcnf/hoons-vbmc-lucky7.cnf", false, b)
 }
 
 func BenchmarkSolverXinetd(b *testing.B) {
-	runBench("testcnf/xinetd_vc56703.cnf", b)
+	runBench("testcnf/xinetd_vc56703.cnf", false, b)
 }
 
 func BenchmarkSolverSmulo(b *testing.B) {
-	runBench("testcnf/smulo016.cnf", b)
+	runBench("testcnf/smulo016.cnf", false, b)
 }
 
 func BenchmarkSolverVMPC(b *testing.B) {
-	runBench("testcnf/vmpc_24.cnf", b)
+	runBench("testcnf/vmpc_24.cnf", false, b)
 }
 
 func BenchmarkSolverACG(b *testing.B) {
-	runBench("testcnf/ACG-10-5p0.cnf", b)
+	runBench("testcnf/ACG-10-5p0.cnf", false, b)
 }
 
 func BenchmarkSolverGSS(b *testing.B) {
-	runBench("testcnf/gss-13-s100.cnf", b)
+	runBench("testcnf/gss-13-s100.cnf", false, b)
 }
 
 func BenchmarkSolverGUS(b *testing.B) {
-	runBench("testcnf/gus-md5-04.cnf", b)
+	runBench("testcnf/gus-md5-04.cnf", false, b)
 }
 
 func BenchmarkSolverHSAT(b *testing.B) {
-	runBench("testcnf/hsat_vc11803.cnf", b)
+	runBench("testcnf/hsat_vc11803.cnf", false, b)
 }
 
 func BenchmarkSolverEqAtree(b *testing.B) {
-	runBench("testcnf/eq.atree.braun.9.unsat.cnf", b)
+	runBench("testcnf/eq.atree.braun.9.unsat.cnf", false, b)
 }
 
 func BenchmarkSolverManolPipe(b *testing.B) {
-	runBench("testcnf/manol-pipe-c9.cnf", b)
+	runBench("testcnf/manol-pipe-c9.cnf", false, b)
 }
 
 func BenchmarkSolverZebra(b *testing.B) {
-	runBench("testcnf/zebra.cnf", b)
+	runBench("testcnf/zebra.cnf", false, b)
+}
+
+func BenchmarkSolverZebraCP(b *testing.B) {
+	runBench("testcnf/zebra.cnf", true, b)
 }
 
 func BenchmarkSolver8Pigeons(b *testing.B) {
-	runBench("testcnf/8-pigeons.cnf", b)
+	runBench("testcnf/8-pigeons.cnf", false, b)
+}
+
+func BenchmarkSolver8PigeonsCP(b *testing.B) {
+	runBench("testcnf/8-pigeons.cnf", true, b)
 }
 
 func BenchmarkSolver8PigeonsPB(b *testing.B) {
-	runBenchPB("testcnf/8-pigeons.opb", b)
+	runBenchPB("testcnf/8-pigeons.opb", false, b)
+}
+
+func BenchmarkSolver8PigeonsPBCP(b *testing.B) {
+	runBenchPB("testcnf/8-pigeons.opb", true, b)
 }
 
 func BenchmarkSolver9Pigeons(b *testing.B) {
-	runBench("testcnf/9-pigeons.cnf", b)
+	runBench("testcnf/9-pigeons.cnf", false, b)
+}
+func BenchmarkSolver9PigeonsCP(b *testing.B) {
+	runBench("testcnf/9-pigeons.cnf", true, b)
 }
 
 func BenchmarkSolver9PigeonsPB(b *testing.B) {
-	runBenchPB("testcnf/9-pigeons.opb", b)
+	runBenchPB("testcnf/9-pigeons.opb", false, b)
+}
+
+func BenchmarkSolver9PigeonsPBCP(b *testing.B) {
+	runBenchPB("testcnf/9-pigeons.opb", true, b)
+}
+
+func BenchmarkSolver9PigeonsTripletsPB(b *testing.B) {
+	runBenchPB("testcnf/9-pigeons-triplets.opb", false, b)
+}
+
+func BenchmarkSolver9PigeonsTripletsPBCP(b *testing.B) {
+	runBenchPB("testcnf/9-pigeons-triplets.opb", true, b)
 }
 
 func BenchmarkSolver10Pigeons(b *testing.B) {
-	runBench("testcnf/10-pigeons.cnf", b)
+	runBench("testcnf/10-pigeons.cnf", false, b)
+}
+
+func BenchmarkSolver10PigeonsCP(b *testing.B) {
+	runBench("testcnf/10-pigeons.cnf", true, b)
 }
 
 func BenchmarkSolver10PigeonsPB(b *testing.B) {
-	runBenchPB("testcnf/10-pigeons.opb", b)
+	runBenchPB("testcnf/10-pigeons.opb", false, b)
+}
+
+func BenchmarkSolver10PigeonsPBCP(b *testing.B) {
+	runBenchPB("testcnf/10-pigeons.opb", true, b)
 }
 
 func BenchmarkSolver11Pigeons(b *testing.B) {
-	runBench("testcnf/11-pigeons.cnf", b)
+	runBench("testcnf/11-pigeons.cnf", false, b)
 }
 
 func BenchmarkSolver11PigeonsPB(b *testing.B) {
-	runBenchPB("testcnf/11-pigeons.opb", b)
+	runBenchPB("testcnf/11-pigeons.opb", false, b)
+}
+
+func BenchmarkSolver11PigeonsPBCP(b *testing.B) {
+	runBenchPB("testcnf/11-pigeons.opb", true, b)
 }

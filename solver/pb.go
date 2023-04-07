@@ -19,7 +19,7 @@ func (c PBConstr) WeightSum() int {
 	return res
 }
 
-// Clause returns the clause associated with the given constraint.
+// Clause returns the clause (in fact, a constraint but the type is named Clause) associated with the given constraint.
 func (c PBConstr) Clause() *Clause {
 	lits := make([]Lit, len(c.Lits))
 	for i, val := range c.Lits {
@@ -50,10 +50,11 @@ func AtLeast(lits []int, n int) PBConstr {
 // AtMost returns a PB constraint stating that at most n literals can be true.
 // It takes ownership of lits.
 func AtMost(lits []int, n int) PBConstr {
+	lits2 := make([]int, len(lits))
 	for i := range lits {
-		lits[i] = -lits[i]
+		lits2[i] = -lits[i]
 	}
-	return PBConstr{Lits: lits, AtLeast: len(lits) - n}
+	return PBConstr{Lits: lits2, AtLeast: len(lits2) - n}
 }
 
 // GtEq returns a PB constraint stating that the sum of all literals multiplied by their weight

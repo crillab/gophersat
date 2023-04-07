@@ -164,6 +164,91 @@ func (pb *Problem) simplify2() {
 	pb.updateStatus(nbClauses)
 }
 
+// DetectAtMostOne tries to detect AtMostOne constraints encoded using the pairwise encoding.
+// It replaces those binary clauses by a single cardinality constraint.
+// This should mostly be called using the CuttingPlanes option, as it can dramatically improve the resolution process in some cases.
+func (pb *Problem) DetectAtMostOne() {
+	considered := make([]bool, pb.NbVars*2)   // Has lit 1 already been detected in a clique?
+	propagates := make([][]Lit, pb.NbVars*2)  // For each lit, the literals it propagates in a binary clause
+	indexes := make([][]int, len(propagates)) // Indexes of binary clauses, to remove them efficiently
+	toRemove := make([]int, 0, 1_000)         // Indexes of clauses that have to be removed afterwards
+	for i, c := range pb.Clauses {
+		if c.Len() == 2 {
+			lit1 := c.First()
+			neg1 := lit1.Negation()
+			lit2 := c.Second()
+			neg2 := lit2.Negation()
+			propagates[neg1] = append(propagates[neg1], lit2)
+			propagates[neg2] = append(propagates[neg2], lit1)
+			indexes[neg1] = append(indexes[neg1], i)
+			indexes[neg2] = append(indexes[neg2], i)
+		}
+	}
+	for i := range propagates {
+		if considered[i] {
+			continue
+		}
+		lit := Lit(i)
+		others := propagates[lit]
+		if len(others) < 2 { // We won't find a cardinality constraint here
+			continue
+		}
+		constr := []Lit{lit.Negation()}
+		for j, other := range others {
+			if considered[other] {
+				continue
+			}
+			ok := true
+			for j := 1; j < len(constr); j++ {
+				lit2 := constr[j].Negation()
+				found := false
+				for _, lit3 := range propagates[lit2] {
+					if lit3 == other {
+						found = true
+						break
+					}
+				}
+				if !found {
+					ok = false
+					break
+				}
+			}
+			if ok { // other was found in a binary clause with each literal in constr
+				constr = append(constr, other)
+				toRemove = append(toRemove, indexes[lit][j])
+			}
+		}
+		if len(constr) > 2 { // We detected a stronger cardinality constraint
+			for _, lit := range constr {
+				considered[lit.Negation()] = true
+			}
+			pb.Clauses = append(pb.Clauses, NewCardClause(constr, len(constr)-1))
+		}
+	}
+	pb.removeBinaries(toRemove)
+}
+
+// removeBinaries removes the binary clauses that were used to build the
+// hidden cardinality constraint whose lits are given as a parameter.
+func (pb *Problem) removeBinaries(toRemove []int) {
+	if len(toRemove) == 0 {
+		return
+	}
+	newClauses := make([]*Clause, 0, len(pb.Clauses)-len(toRemove))
+	i := 0
+	for j, c := range pb.Clauses {
+		if j == toRemove[i] {
+			i++
+			if i == len(toRemove) {
+				break
+			}
+		} else {
+			newClauses = append(newClauses, c)
+		}
+	}
+	pb.Clauses = newClauses
+}
+
 // simplifyCard simplifies the problem, i.e runs unit propagation if possible.
 func (pb *Problem) simplifyCard() {
 	nbClauses := len(pb.Clauses)

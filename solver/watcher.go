@@ -57,6 +57,7 @@ func (s *Solver) addVarWatcherList(v Var) {
 // clause is supposed to be a problem clause, not a learned one.
 func (s *Solver) appendClause(clause *Clause) {
 	s.wl.origClauses = append(s.wl.origClauses, clause)
+	// log.Printf("appending (and watching) %s", clause.PBString())
 	s.watchClause(clause)
 }
 
@@ -93,6 +94,7 @@ func (s *Solver) watchClause(c *Clause) {
 		if card == c.Len()+1 {
 			s.watchCardAMO(c, card)
 		} else {
+			// log.Printf("watching cardinality %s", c.PBString())
 			for i := 0; i < c.Cardinality()+1; i++ {
 				lit := c.Get(i)
 				neg := lit.Negation()
@@ -100,6 +102,7 @@ func (s *Solver) watchClause(c *Clause) {
 			}
 		}
 	} else if c.Len() == 2 {
+		// log.Printf("watching binary %s", c.PBString())
 		first := c.First()
 		second := c.Second()
 		neg0 := first.Negation()
@@ -107,6 +110,7 @@ func (s *Solver) watchClause(c *Clause) {
 		s.wl.wlistBin[neg0] = append(s.wl.wlistBin[neg0], watcher{clause: c, other: second})
 		s.wl.wlistBin[neg1] = append(s.wl.wlistBin[neg1], watcher{clause: c, other: first})
 	} else { // Regular, propositional clause
+		// log.Printf("watching regular %s", c.PBString())
 		first := c.First()
 		second := c.Second()
 		neg0 := first.Negation()
@@ -117,10 +121,12 @@ func (s *Solver) watchClause(c *Clause) {
 }
 
 func (s *Solver) watchPB(c *Clause) {
-	goal := c.Weight(0) + c.Cardinality() // We'll keep watching vars until the max weightat least reaches this value
+	// log.Printf("watching PB %s", c.PBString())
+	goal := c.Weight(0) + c.Cardinality() // We'll keep watching vars until the max weight at least reaches this value
 	sum := 0
 	i := 0
-	for sum < goal {
+	// log.Printf("goal is %d", goal)
+	for sum < goal && i < c.Len() {
 		lit := c.Get(i)
 		neg := lit.Negation()
 		s.wl.wlistPb[neg] = append(s.wl.wlistPb[neg], c)
@@ -133,6 +139,7 @@ func (s *Solver) watchPB(c *Clause) {
 func (s *Solver) watchCardAMO(c *Clause, card int) {
 	// This is an AtMostOne constraint. At most one of the literals is false.
 	// Any falsified literal propagates all other lits.
+	// log.Printf("watching AMO %s", c.PBString())
 	for i := 0; i < card+1; i++ {
 		lit := c.Get(i)
 		neg := lit.Negation()
@@ -159,6 +166,26 @@ func (s *Solver) unwatchClause(c *Clause) {
 	}
 }
 
+// unwatch the given learned PB constraint.
+// Note: this should only be called when c.PseudoBoolean() is true.
+func (s *Solver) unwatchPB(c *Clause) {
+	for i := 0; i < c.Len(); i++ {
+		if !c.pbData.watched[i] {
+			continue
+		}
+		neg := c.Get(i).Negation()
+		j := 0
+		length := len(s.wl.wlistPb[neg])
+		// We're looking for the index of the clause.
+		// This will panic if c is not in wlist[neg], but this shouldn't happen.
+		for s.wl.wlistPb[neg][j] != c {
+			j++
+		}
+		s.wl.wlistPb[neg][j] = s.wl.wlistPb[neg][length-1]
+		s.wl.wlistPb[neg] = s.wl.wlistPb[neg][:length-1]
+	}
+}
+
 // reduceLearned removes a few learned clauses that are deemed useless.
 func (s *Solver) reduceLearned() {
 	sort.Sort(&s.wl)
@@ -177,6 +204,35 @@ func (s *Solver) reduceLearned() {
 		s.Stats.NbDeleted++
 		s.wl.learned[i] = s.wl.learned[nbLearned-nbRemoved]
 		s.unwatchClause(c)
+	}
+	nbLearned -= nbRemoved
+	s.wl.learned = s.wl.learned[:nbLearned]
+}
+
+type watcherListPB watcherList // A type synonymous to sort PB constraints a little more efficiently.
+
+func (wl *watcherListPB) Len() int      { return len(wl.learned) }
+func (wl *watcherListPB) Swap(i, j int) { wl.learned[i], wl.learned[j] = wl.learned[j], wl.learned[i] }
+
+func (wl *watcherListPB) Less(i, j int) bool {
+	return wl.learned[i].activity < wl.learned[j].activity
+}
+
+func (s *Solver) reduceLearnedPB() {
+	wlpb := watcherListPB(s.wl)
+	sort.Sort(&wlpb)
+	nbLearned := len(s.wl.learned)
+	length := nbLearned / 2
+	nbRemoved := 0
+	for i := 0; i < length; i++ {
+		c := s.wl.learned[i]
+		if c.isLocked() {
+			continue
+		}
+		nbRemoved++
+		s.Stats.NbDeleted++
+		s.wl.learned[i] = s.wl.learned[nbLearned-nbRemoved]
+		s.unwatchPB(c)
 	}
 	nbLearned -= nbRemoved
 	s.wl.learned = s.wl.learned[:nbLearned]
@@ -233,6 +289,7 @@ func removeFrom(lst []*Clause, c *Clause) []*Clause {
 func (s *Solver) propagate(ptr int, lvl decLevel) *Clause {
 	for ptr < len(s.trail) {
 		lit := s.trail[ptr]
+		// log.Printf("propagating %d", lit.Int())
 		for _, w := range s.wl.wlistBin[lit] {
 			v2 := w.other.Var()
 			if assign := s.model[v2]; assign == 0 { // Other was unbounded: propagate
@@ -275,7 +332,21 @@ func (s *Solver) unifyLiteral(lit Lit, lvl decLevel) *Clause {
 	return s.propagate(len(s.trail)-1, lvl)
 }
 
+func (s *Solver) unifyLiterals(lits []Lit, lvl decLevel) *Clause {
+	for _, lit := range lits {
+		s.model[lit.Var()] = lvlToSignedLvl(lit, lvl)
+		s.trail = append(s.trail, lit)
+	}
+	for i := 0; i < len(lits); i++ {
+		if confl := s.propagate(len(s.trail)-len(lits)-i, lvl); confl != nil {
+			return confl
+		}
+	}
+	return nil
+}
+
 func (s *Solver) propagateUnit(c *Clause, lvl decLevel, unit Lit) {
+	// log.Printf("propagating unit %d", unit.Int())
 	v := unit.Var()
 	s.reason[v] = c
 	c.lock()
@@ -431,7 +502,7 @@ func (s *Solver) swapFalse(clause *Clause) {
 	}
 }
 
-// slack Sumreturns slack value for c and whether the clause is already sat or not.
+// slackSum returns slack value for c and whether the clause is already sat or not.
 // The slack value is defined as sum of weights - cardinality - sum of weights of falsified lits.
 // It can be negative, meaning the whole constraint is falsified.
 // If it's 0 or above, it means all literals with a weight >= slack must be propagated.

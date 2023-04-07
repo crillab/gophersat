@@ -96,12 +96,14 @@ func (s *Solver) learnClause(confl *Clause, lvl decLevel) (learned *Clause, unit
 	sortLiterals(lits, s.model)
 	sz := s.minimizeLearned(met, lits)
 	if sz == 1 {
+		// fmt.Printf("learned unit %d, trail is %s\n", lits[0].Int(), s.trailString())
 		return nil, lits[0]
 	}
 	lits2 := make([]Lit, sz)
 	copy(lits2, lits[:sz])
 	learned = NewLearnedClause(lits2)
 	learned.computeLbd(s.model)
+	// fmt.Printf("learned clause %s, trail is %s\n", learned.CNF(), s.trailString())
 	return learned, -1
 }
 

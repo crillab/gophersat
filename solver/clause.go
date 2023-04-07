@@ -68,14 +68,14 @@ func NewPBClause(lits []Lit, weights []int, card int) *Clause {
 	}
 	wl := &weightedLits{lits: lits, weights: weights}
 	sort.Sort(wl)
-	pbData := pbData{weights: weights, watched: make([]bool, len(lits))}
-	if pbData.weights == nil {
-		pbData.weights = make([]int, len(lits))
-		for i := range pbData.weights {
-			pbData.weights[i] = 1
+	pbd := pbData{weights: weights, watched: make([]bool, len(lits))}
+	if pbd.weights == nil {
+		pbd.weights = make([]int, len(lits))
+		for i := range pbd.weights {
+			pbd.weights[i] = 1
 		}
 	}
-	return &Clause{lits: lits, lbdValue: uint32(card - 1), pbData: &pbData}
+	return &Clause{lits: lits, lbdValue: uint32(card - 1), pbData: &pbd}
 }
 
 // NewLearnedClause returns a new clause marked as learned.
@@ -256,7 +256,7 @@ func (c *Clause) SimplifyPB() (units []Lit, c2 *Clause, ok bool) {
 	}
 	// all lits whose weights are > thresh must be satisfied
 	i := 0
-	for c.Weight(i) > thresh {
+	for i < c.Len() && c.Weight(i) > thresh {
 		units = append(units, c.Get(i))
 		card -= c.Weight(i)
 		i++

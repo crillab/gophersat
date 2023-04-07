@@ -54,18 +54,19 @@ func (m Model) String() string {
 
 // A Solver solves a given problem. It is the main data structure.
 type Solver struct {
-	Verbose     bool        // Indicates whether the solver should display information during solving or not. False by default
-	Certified   bool        // Indicates whether a certificate should be generated during solving or not, using the RUP notation. This is useful to prove UNSAT instances. False by default.
-	CertChan    chan string // Indicates where to write the certificate. If Certified is true but CertChan is nil, the certificate will be written on stdout.
-	nbVars      int
-	status      Status
-	wl          watcherList
-	trail       []Lit     // Current assignment stack
-	model       Model     // 0 means unbound, other value is a binding
-	lastModel   Model     // Placeholder for last model found, useful when looking for several models
-	activity    []float64 // How often each var is involved in conflicts
-	polarity    []bool    // Preferred sign for each var
-	assumptions []bool    // True iff the var's binding is assumed
+	Verbose       bool        // Indicates whether the solver should display information during solving or not. False by default
+	Certified     bool        // Indicates whether a certificate should be generated during solving or not, using the RUP notation. This is useful to prove UNSAT instances. False by default.
+	CertChan      chan string // Indicates where to write the certificate. If Certified is true but CertChan is nil, the certificate will be written on stdout.
+	CuttingPlanes bool        // Indicates that the cutting planes resolution method should be used. Note that this is only efficient on PB problems.
+	nbVars        int
+	status        Status
+	wl            watcherList
+	trail         []Lit     // Current assignment stack
+	model         Model     // 0 means unbound, other value is a binding
+	lastModel     Model     // Placeholder for last model found, useful when looking for several models
+	activity      []float64 // How often each var is involved in conflicts
+	polarity      []bool    // Preferred sign for each var
+	assumptions   []bool    // True iff the var's binding is assumed
 	// For each var, clause considered when it was unified
 	// If the var is not bound yet, or if it was bound by a decision, value is nil.
 	reason          []*Clause
@@ -73,6 +74,7 @@ type Solver struct {
 	varInc          float64 // On each var bump, how big the increment should be
 	clauseInc       float32 // On each var bump, how big the increment should be
 	lbdStats        lbdStats
+	lubyNextRestart int     // When will the next restart happen when using Luby's strategy?
 	Stats           Stats   // Statistics about the solving process.
 	minLits         []Lit   // Lits to minimize if the problem was an optimization problem.
 	minWeights      []int   // Weight of each lit to minimize if the problem was an optimization problem.
@@ -80,6 +82,8 @@ type Solver struct {
 	localNbRestarts int     // How many restarts since Solve() was called?
 	varDecay        float64 // On each var decay, how much the varInc should be decayed
 	trailBuf        []int   // A buffer while cleaning bindings
+	pbSetBuf        []int   // A buffer to reduce allocation when performing cutting planes
+	pbSetBuf2       []int   // A buffer to reduce allocation when performing cutting planes
 }
 
 // New makes a solver, given a number of variables and a set of clauses.
@@ -97,20 +101,23 @@ func New(problem *Problem) *Solver {
 	}
 
 	s := &Solver{
-		nbVars:      nbVars,
-		status:      problem.Status,
-		trail:       make([]Lit, len(problem.Units), trailCap),
-		model:       problem.Model,
-		activity:    make([]float64, nbVars),
-		polarity:    make([]bool, nbVars),
-		assumptions: make([]bool, nbVars),
-		reason:      make([]*Clause, nbVars),
-		varInc:      1.0,
-		clauseInc:   1.0,
-		minLits:     problem.minLits,
-		minWeights:  problem.minWeights,
-		varDecay:    defaultVarDecay,
-		trailBuf:    make([]int, nbVars),
+		nbVars:          nbVars,
+		status:          problem.Status,
+		trail:           make([]Lit, len(problem.Units), trailCap),
+		model:           problem.Model,
+		activity:        make([]float64, nbVars),
+		polarity:        make([]bool, nbVars),
+		assumptions:     make([]bool, nbVars),
+		reason:          make([]*Clause, nbVars),
+		varInc:          1.0,
+		clauseInc:       1.0,
+		lubyNextRestart: int(lubyConstant * luby(1)),
+		minLits:         problem.minLits,
+		minWeights:      problem.minWeights,
+		varDecay:        defaultVarDecay,
+		trailBuf:        make([]int, nbVars),
+		pbSetBuf:        make([]int, nbVars),
+		pbSetBuf2:       make([]int, nbVars),
 	}
 	s.resetOptimPolarity()
 	s.initOptimActivity()
@@ -212,6 +219,7 @@ func (s *Solver) varDecayActivity() {
 }
 
 func (s *Solver) varBumpActivity(v Var) {
+	// fmt.Printf("bumping var %d\n", v.Int())
 	s.activity[v] += s.varInc
 	if s.activity[v] > 1e100 { // Rescaling is needed to avoid overflowing
 		for i := range s.activity {
@@ -258,11 +266,22 @@ func (s *Solver) chooseLit() Lit {
 	return v.SignedLit(!s.polarity[v])
 }
 
-func abs(val decLevel) decLevel {
+type number interface {
+	int | int32 | decLevel
+}
+
+func abs[T number](val T) T {
 	if val < 0 {
 		return -val
 	}
 	return val
+}
+
+func min[T number](a, b T) T {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // Reinitializes bindings (both model & reason) for all variables bound at a decLevel >= lvl.
@@ -328,6 +347,19 @@ func (s *Solver) cleanupBindings(lvl decLevel) {
 	s.resetOptimPolarity()
 }
 
+func (s *Solver) trailString() string {
+	res := ""
+	for i, lit := range s.trail {
+		v := lit.Var()
+		assign := s.model[v]
+		if assign == 0 {
+			panic(fmt.Sprintf("error: literal in trail at position %d but not assigned: %d", i, lit.Int()))
+		}
+		res += fmt.Sprintf("%d@%d ", lit.Int(), abs(assign))
+	}
+	return res
+}
+
 // Given the last learnt clause and the levels at which vars were bound,
 // Returns the level to bt to and the literal to bind
 func backtrackData(c *Clause, model []decLevel) (btLevel decLevel, lit Lit) {
@@ -348,6 +380,9 @@ func (s *Solver) rebuildOrderHeap() {
 // propagate binds the given lit, propagates it and searches for a solution,
 // until it is found or a restart is needed.
 func (s *Solver) propagateAndSearch(lit Lit, lvl decLevel) Status {
+	if s.CuttingPlanes {
+		return s.propagateAndSearchPB(lit, lvl)
+	}
 	for lit != -1 {
 		// log.Printf("picked %d at lvl %d", lit.Int(), lvl)
 		if conflict := s.unifyLiteral(lit, lvl); conflict == nil { // Pick new branch or restart
@@ -402,6 +437,84 @@ func (s *Solver) propagateAndSearch(lit Lit, lvl decLevel) Status {
 	return Sat
 }
 
+// propagateAndSearchPB performs pseudo-boolean constraint learning whenever a conflcit arises.
+func (s *Solver) propagateAndSearchPB(lit Lit, lvl decLevel) Status {
+	for lit != -1 {
+		// log.Printf("picked %d at lvl %d", lit.Int(), lvl)
+		if conflict := s.unifyLiteral(lit, lvl); conflict == nil { // Pick new branch or restart
+			if s.Stats.NbConflicts >= s.lubyNextRestart {
+				s.lubyNextRestart += int(lubyConstant * luby(uint(s.Stats.NbRestarts)+2))
+				s.cleanupBindings(1)
+				return Indet
+			}
+			if s.Stats.NbConflicts >= s.wl.idxReduce*s.wl.nbMax {
+				s.wl.idxReduce = s.Stats.NbConflicts/s.wl.nbMax + 1
+				s.reduceLearnedPB()
+				s.bumpNbMax()
+			}
+			lvl++
+			lit = s.chooseLit()
+		} else { // Deal with conflict
+			for conflict != nil {
+				// log.Printf("conflict: %s", conflict.PBString())
+				s.Stats.NbConflicts++
+				if s.Stats.NbConflicts%5_000 == 0 && s.varDecay < 0.95 {
+					s.varDecay += 0.01
+				}
+				s.lbdStats.addConflict(len(s.trail))
+				learnt, propagated, newLvl := s.cuttingPlanes(conflict, lvl)
+				// log.Printf("learnt=%v, propagated=%v, newLvl=%d", learnt, propagated, newLvl)
+				if newLvl == -1 { // Generated constraint is false
+					return s.setUnsat()
+				}
+				if newLvl == 1 {
+					for _, unit := range propagated {
+						if unit == -1 || (abs(s.model[unit.Var()]) == 1 && s.litStatus(unit) == Unsat) { // Top-level conflict
+							return s.setUnsat()
+						}
+						s.Stats.NbUnitLearned++
+						s.lbdStats.addLbd(1)
+						s.cleanupBindings(1)
+						s.addLearnedUnit(unit)
+						s.model[unit.Var()] = lvlToSignedLvl(unit, 1)
+						if conflict = s.unifyLiteral(unit, 1); conflict != nil { // top-level conflict
+							return s.setUnsat()
+						}
+					}
+					s.rebuildOrderHeap()
+					lit = s.chooseLit()
+					lvl = 2
+				} else {
+					lvl = newLvl
+					// A constraint was learned and lits have to be propagated at lvl > 1
+					// if learnt != nil {
+					// 	log.Printf("propagated the following lits at lvl %d because of %s:", lvl, learnt.PBString())
+					// } else {
+					// 	log.Printf("propagated the following lits at lvl %d with empty constr:", lvl)
+					// }
+					// for _, lit := range propagated {
+					// 	log.Printf("%d ", lit.Int())
+					// }
+					s.Stats.NbLearned++
+					s.addLearned(learnt)
+					learnt.lock()
+					lvl = newLvl
+					s.cleanupBindings(lvl)
+					for _, lit := range propagated {
+						s.reason[lit.Var()] = learnt
+					}
+					conflict = s.unifyLiterals(propagated, lvl)
+					if conflict == nil {
+						lit = s.chooseLit()
+						lvl++
+					}
+				}
+			}
+		}
+	}
+	return Sat
+}
+
 // Sets the status to unsat and do cleanup tasks.
 func (s *Solver) setUnsat() Status {
 	if s.Certified {
@@ -419,6 +532,7 @@ func (s *Solver) setUnsat() Status {
 func (s *Solver) search() Status {
 	s.localNbRestarts++
 	lvl := decLevel(2) // Level starts at 2, for implementation reasons : 1 is for top-level bindings; 0 means "no level assigned yet"
+	// s.status = s.propagateAndSearch(s.chooseLit(), lvl)
 	s.status = s.propagateAndSearch(s.chooseLit(), lvl)
 	return s.status
 }
@@ -817,6 +931,7 @@ func (s *Solver) Optimal(results chan Result, stop chan struct{}) (res Result) {
 		}
 		return res
 	}
+	// log.Printf("found a solution, now minimizing...")
 	maxCost := 0
 	if s.minWeights == nil {
 		maxCost = len(s.minLits)
@@ -851,6 +966,7 @@ func (s *Solver) Optimal(results chan Result, stop chan struct{}) (res Result) {
 			Model:  s.Model(),
 			Weight: cost,
 		}
+		// log.Printf("result=%v", res)
 		if results != nil {
 			results <- res
 		}

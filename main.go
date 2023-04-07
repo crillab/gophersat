@@ -22,12 +22,14 @@ func main() {
 		cert    bool
 		mus     bool
 		count   bool
+		cp      bool
 		help    bool
 	)
 	flag.BoolVar(&verbose, "verbose", false, "sets verbose mode on")
 	flag.BoolVar(&cert, "certified", false, "displays RUP certificate on stdout")
 	flag.BoolVar(&mus, "mus", false, "extracts a MUS from an unsat problem")
 	flag.BoolVar(&count, "count", false, "rather than solving the problem, counts the number of models it accepts")
+	flag.BoolVar(&cp, "cp", false, "use cutting planes for resolution")
 	flag.BoolVar(&help, "help", false, "displays help")
 	flag.Parse()
 	if !help && len(flag.Args()) != 1 {
@@ -64,7 +66,7 @@ func main() {
 			} else if count {
 				countModels(pb, verbose)
 			} else {
-				solve(pb, verbose, cert, printFn)
+				solve(pb, verbose, cert, cp, printFn)
 			}
 		}
 	}
@@ -111,7 +113,10 @@ func countModels(pb *solver.Problem, verbose bool) {
 	fmt.Println(nb)
 }
 
-func solve(pb *solver.Problem, verbose, cert bool, printFn func(chan solver.Result)) {
+func solve(pb *solver.Problem, verbose, cert, cp bool, printFn func(chan solver.Result)) {
+	if cp {
+		pb.DetectAtMostOne()
+	}
 	s := solver.New(pb)
 	if verbose {
 		fmt.Printf("c ======================================================================================\n")
@@ -120,6 +125,7 @@ func solve(pb *solver.Problem, verbose, cert bool, printFn func(chan solver.Resu
 		s.Verbose = true
 	}
 	s.Certified = cert
+	s.CuttingPlanes = cp
 	results := make(chan solver.Result)
 	go s.Optimal(results, nil)
 	printFn(results)
