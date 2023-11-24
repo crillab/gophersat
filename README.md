@@ -19,6 +19,25 @@ solvers (namely, [glucose](http://www.labri.fr/perso/lsimon/glucose/) or
 It can also solve MAXSAT problems, and pseudo-boolean decision and optimization problems.
 
 
+## Version 1.4: Cutting-planes
+
+Gophersat's last stable version is version 1.4. It includes the optional cutting-planes solving strategy.
+
+Some problems, such as the famous pigeonhole problem, take a very-long time to solve using pure logical reasoning.
+
+The pigeonhole problem can be expressed this way: is it possible to put n pigeons in m pigeonholes, where m = n-1, without putting several pigeons in the same hole and putting all pigeons in a hole? The answer is obvious: if you have 4 pigeons in 3 holes, you can't put them all in a different hole. But how do you *prove* this? A SAT or PB solver will prove it by trying all possible combinations, and the number of possible combinations grows exponentially. So, trying to solve the problem with n=20 is not feasible in practice, despite the problem having an obvious answer.
+
+Some PB solvers implement an alternative strategy: the cutting-planes strategy. It won't be described in detail in this document, but this stategy can be extremely efficient on some problems, such as the pigeonhole problem which cannot be solved efficiently by pure logical reasoning, but will be slower on most problems.
+
+It is now possible to use the cutting-planes with Gophersat. Just use the `-cp` command-line option. So, instead of calling:
+
+    gophersat problem.opb
+
+Just call:
+
+    gophersat -cp problem.opb
+
+
 ## Version 1.3
 
 Gophersat's last stable version is version 1.3. It is a minor update, adding the ability to access the underlying solver when dealing with MAXSAT problems.
