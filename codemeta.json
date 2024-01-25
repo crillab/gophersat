@@ -1,0 +1,40 @@
+{
+    "@context": "https://doi.org/10.5063/schema/codemeta-2.0",
+    "@type": "SoftwareSourceCode",
+    "license": "https://spdx.org/licenses/MIT",
+    "codeRepository": "https://github.com/crillab/gophersat",
+    "dateCreated": "2017-01-20",
+    "datePublished": "2017-07-27",
+    "name": "Gophersat",
+    "version": "1.4",
+    "description": "Gophersat is a SAT and pseudo-boolean solver written in go. It can also solve MAXSAT problems, and pseudo-boolean decision and optimization problems. It can be used as a library in a go program, or as a standalone solver.\n",
+    "applicationCategory": "Artificial Intelligence",
+    "funder": {
+        "@type": "Organization",
+        "name": "CRIL CNRS & Univ. Artois"
+    },
+    "keywords": [
+        "AI",
+        "artificial intelligence",
+        "SAT",
+        "MAXSAT",
+        "pseudo boolean",
+        "constraints"
+    ],
+    "programmingLanguage": [
+        "go"
+    ],
+    "author": [
+        {
+            "@type": "Person",
+            "@id": "https://orcid.org/0000-0003-3696-8657",
+            "givenName": "Fabien",
+            "familyName": "Delorme",
+            "email": "fabien.delorme@cnrs.fr",
+            "affiliation": {
+                "@type": "Organization",
+                "name": "CRIL CNRS & Univ. Artois"
+            }
+        }
+    ]
+}
