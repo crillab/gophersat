@@ -45,6 +45,38 @@ func TestEmptyOr(t *testing.T) {
 	}
 }
 
+func TestNNF(t *testing.T) {
+	tests := []struct {
+		raw  Formula
+		want bool
+	}{
+		{
+			raw:  And(True, True, True),
+			want: true,
+		},
+		{
+			raw:  And(True, False, True),
+			want: false,
+		},
+		{
+			raw:  Or(False, False, False),
+			want: false,
+		},
+		{
+			raw:  Or(False, True, False),
+			want: true,
+		},
+	}
+	m := map[string]bool{}
+
+	for _, test := range tests {
+		f := test.raw.nnf()
+		if got, want := f.Eval(m), test.want; got != want {
+			t.Errorf("%s.nnf().Eval() = %t, want %t", test.raw, got, want)
+		}
+	}
+}
+
 func TestCNF(t *testing.T) {
 	f := And(Or(Var("a"), Var("b")), Var("i"), Or(Var("g"), Var("h"), And(Var("c"), Or(Var("d"), Var("e")), Var("f"))))
 	model := Solve(f)
