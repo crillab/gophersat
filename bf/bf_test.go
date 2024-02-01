@@ -309,6 +309,47 @@ func TestReproduceInvalidSolutionBug2(t *testing.T) {
 	}
 }
 
+func TestInvalidUnsatBug(t *testing.T) {
+	f := And(
+		Not(Var("a")),
+		Not(Or(
+			And(Var("a"), Not(Var("b"))),
+			And(Var("b"), Not(Var("a"))),
+		)),
+		Or(
+			And(And(Var("a"), Var("b")), Not(Not(Var("c")))),
+			And(Not(Var("c")), Not(And(Var("a"), Var("b")))),
+		),
+		Not(Or(
+			And(Or(And(And(Var("a"), Var("b")), Not(Var("c"))), Var("c")), Not(Var("d"))),
+			And(Var("d"), Not(Or(And(And(Var("a"), Var("b")), Not(Var("c"))), Var("c")))),
+		)),
+		Not(Or(
+			And(And(Or(And(And(Var("a"), Var("b")), Not(Var("c"))), Var("c")), Var("d")), Not(Var("e"))),
+			And(Var("e"), Not(And(Or(And(And(Var("a"), Var("b")), Not(Var("c"))), Var("c")), Var("d")))),
+		)),
+	)
+
+	model := map[string]bool{
+		"a": false,
+		"b": false,
+		"c": false,
+		"d": false,
+		"e": false,
+	}
+	if !f.Eval(model) {
+		t.Errorf("Model check with known solution failed")
+	}
+
+	model = Solve(f)
+	if model == nil {
+		t.Fatalf("Failed to solve; f:\n%s", f)
+	}
+	if !f.Eval(model) {
+		t.Errorf("Model check failed")
+	}
+}
+
 func TestPanic1(t *testing.T) {
 	ans := Solve(And(Var("x"), Var("x")))
 	if len(ans) != 1 {

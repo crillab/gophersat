@@ -463,7 +463,9 @@ func cnfRec(f Formula, vars *vars) [][]int {
 				lits = append(lits, d)
 				for _, sub2 := range sub {
 					cnf := cnfRec(sub2, vars)
-					cnf[0] = append(cnf[0], -d)
+					for i := range cnf {
+						cnf[i] = append(cnf[i], -d)
+					}
 					res = append(res, cnf...)
 				}
 			default:
