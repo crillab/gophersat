@@ -51,8 +51,9 @@ func TestBugInfiniteLoop(t *testing.T) {
 	}
 	problem := New(clauses...)
 
-	model, cost := problem.Solve()
+	model, cost, broken := problem.Solve()
 	fmt.Println(cost)
 	fmt.Println(model)
+	fmt.Println(broken)
 
 }

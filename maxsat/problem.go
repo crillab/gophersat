@@ -2,6 +2,8 @@ package maxsat
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/crillab/gophersat/solver"
 )
@@ -25,7 +27,7 @@ func New(constrs ...Constr) *Problem {
 	for i, constr := range constrs {
 		lits := make([]int, len(constr.Lits))
 		for j, lit := range constr.Lits {
-			v := lit.Var
+			v := fmt.Sprintf("VAR_%s", lit.Var)
 			if _, ok := pb.intVars[v]; !ok {
 				pb.varInts = append(pb.varInts, v)
 				pb.intVars[v] = len(pb.varInts)
@@ -41,7 +43,7 @@ func New(constrs ...Constr) *Problem {
 			copy(coeffs, constr.Coeffs)
 		}
 		if constr.Weight != 0 { // Soft constraint: add blocking literal
-			pb.varInts = append(pb.varInts, "") // Create new blocking lit
+			pb.varInts = append(pb.varInts, fmt.Sprintf("BLOCK_%d", i)) // Create new blocking lit
 			bl := len(pb.varInts)
 			pb.blockWeights[bl] = constr.Weight
 			pb.maxWeight += constr.Weight
@@ -70,7 +72,7 @@ func (pb *Problem) SetVerbose(verbose bool) {
 	pb.solver.Verbose = verbose
 }
 
-// Output output the problem to stdout in the OPB format.
+// Output the problem to stdout in the OPB format.
 func (pb *Problem) Output() {
 	fmt.Println(pb.solver.PBString())
 }
@@ -82,19 +84,29 @@ func (pb *Problem) Solver() *solver.Solver {
 	return pb.solver
 }
 
-// Solve returns an optimal Model for the problem and the associated cost.
+// Solve returns an optimal Model for the problem, the associated cost, and the indices of any broken soft constraints.
 // If the model is nil, the problem was not satisfiable (i.e hard clauses could not be satisfied).
-func (pb *Problem) Solve() (Model, int) {
+func (pb *Problem) Solve() (Model, int, []int) {
 	cost := pb.solver.Minimize()
 	if cost == -1 {
-		return nil, -1
+		return nil, -1, nil
 	}
+	var broken []int
 	res := make(Model)
 	for i, binding := range pb.solver.Model() {
 		name := pb.varInts[i]
-		if name != "" { // Ignore blocking lits
+		if name, ok := strings.CutPrefix(name, "BLOCK_"); ok { // Ignore blocking lits
+			if binding { // if the blocking lit was disabled, add it to the broken list
+				id, err := strconv.Atoi(name)
+				if err == nil {
+					broken = append(broken, id)
+				}
+			}
+		} else if name, ok := strings.CutPrefix(name, "VAR_"); ok { // "Fix" normal lits
 			res[name] = binding
+		} else {
+			panic("An unknown variable entered the model: " + name)
 		}
 	}
-	return res, cost
+	return res, cost, broken
 }

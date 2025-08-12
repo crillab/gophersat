@@ -17,8 +17,8 @@ func TestUnsat(t *testing.T) {
 		HardClause(Not("a"), Not("b"), Var("c")),
 		HardClause(Not("a"), Not("b"), Not("c")),
 	)
-	if model, cost := pb.Solve(); model != nil {
-		t.Errorf("expected unsat, got model %v, cost %d", model, cost)
+	if model, cost, broken := pb.Solve(); model != nil {
+		t.Errorf("expected unsat, got model %v, cost %d, broken %v", model, cost, broken)
 	}
 }
 
@@ -32,14 +32,34 @@ func TestSat(t *testing.T) {
 		HardClause(Not("a"), Var("b"), Not("c")),
 		HardClause(Not("a"), Not("b"), Not("c")),
 	)
-	if model, cost := pb.Solve(); model == nil {
+	if model, cost, broken := pb.Solve(); model == nil {
 		t.Errorf("expected sat, got unsat")
 	} else if !model["a"] || !model["b"] || model["c"] {
 		t.Errorf("invalid model, got %v", model)
 	} else if cost != 0 {
 		t.Errorf("invalid cost, expected 0, got %d", cost)
+	} else if len(broken) > 0 {
+		t.Errorf("invalid broken, expected [], got %v", broken)
 	}
 }
+
+func TestBroken(t *testing.T) {
+	pb := New(
+		HardClause(Not("a"), Var("b")),
+		HardClause(Not("b")),
+		SoftClause(Var("a"), Var("b")),
+	)
+	if model, cost, broken := pb.Solve(); model == nil {
+		t.Errorf("expected sat, got unsat")
+	} else if model["a"] || model["b"] {
+		t.Errorf("invalid model, got %v", model)
+	} else if cost != 1 {
+		t.Errorf("invalid cost, expected 1, got %d", cost)
+	} else if len(broken) != 1 || broken[0] != 2 {
+		t.Errorf("invalid broken, expected [2], got %v", broken)
+	}
+}
+
 
 func TestOptim(t *testing.T) {
 	pb := New(
@@ -50,12 +70,14 @@ func TestOptim(t *testing.T) {
 		WeightedPBConstr([]Lit{Var("b"), Var("c"), Var("d")}, []int{1, 1, 1}, 2, 3),
 		SoftClause(Not("c"), Not("d")),
 	)
-	if model, cost := pb.Solve(); model == nil {
+	if model, cost, broken := pb.Solve(); model == nil {
 		t.Errorf("expected sat, got unsat")
 	} else if model["a"] || !model["b"] || model["c"] || !model["d"] {
 		t.Errorf("invalid model, got %v", model)
 	} else if cost != 1 {
 		t.Errorf("invalid cost, expected 1, got %d", cost)
+	} else if len(broken) != 1 || broken[0] != 2 {
+		t.Errorf("invalid broken, expected [2], got %v", broken)
 	}
 }
 
@@ -117,10 +139,12 @@ func generateTSP(nbCities int) []Constr {
 func TestTSP(t *testing.T) {
 	constrs := generateTSP(9)
 	pb := New(constrs...)
-	if model, cost := pb.Solve(); model == nil {
+	if model, cost, broken := pb.Solve(); model == nil {
 		t.Errorf("expected sat, got unsat")
 	} else if cost == 0 {
 		t.Errorf("invalid cost, expected non null, got %d", cost)
+	} else if len(broken) == 0 {
+		t.Errorf("invalid broken, expected not empty, got %v", broken)
 	}
 }
 
